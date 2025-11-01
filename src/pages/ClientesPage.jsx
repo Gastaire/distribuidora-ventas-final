@@ -45,7 +45,7 @@ const ClientesPage = () => {
     return (
         <div className="bg-gray-100 min-h-screen">
             <header className="bg-white p-4 shadow-md sticky top-0 flex items-center gap-4 z-10">
-                <button onClick={() => navigate(-1)} className="text-blue-600" aria-label="Volver">
+                <button onClick={() => navigate('/')} className="text-blue-600" aria-label="Volver">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
                 <div className="relative flex-1">

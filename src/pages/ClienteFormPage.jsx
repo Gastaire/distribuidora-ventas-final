@@ -60,13 +60,13 @@ const ClienteFormPage = () => {
                 const createdCliente = await createCliente(newCliente, token);
                 await db.clientes.put({ ...newCliente, id: createdCliente.id, status: 'synced' });
             }
-            navigate('/clientes');
+            navigate('/clientes', { replace: true }); // Usamos replace para no añadir al historial
         } catch (err) {
             setError(err.message);
             // Fallback: guardar localmente si falla la API
             if (!isEditing) {
                 await db.clientes.add({ ...formData, local_id: `local_${Date.now()}`, status: 'pending_sync' });
-                navigate('/clientes');
+                navigate('/clientes', { replace: true });
             }
         } finally {
             setLoading(false);
@@ -80,7 +80,7 @@ const ClienteFormPage = () => {
     return (
         <div className="bg-gray-100 min-h-screen">
             <header className="bg-white p-4 shadow-md sticky top-0 flex items-center gap-4 z-10">
-                <button onClick={() => navigate(-1)} className="text-blue-600" aria-label="Volver">
+                <button onClick={() => navigate('/clientes')} className="text-blue-600" aria-label="Volver">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
                 <h2 className="font-bold text-lg">{isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>

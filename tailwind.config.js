@@ -4,7 +4,7 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.${js,ts,jsx,tsx}", // <--- Corregido a un solo slash
+    "./src/**/*.{js,ts,jsx,tsx}", // <--- CORRECCIÓN: La sintaxis del glob pattern era incorrecta.
   ],
   theme: {
     extend: {},

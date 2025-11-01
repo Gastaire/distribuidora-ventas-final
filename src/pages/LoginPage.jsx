@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext'; // Importamos nuestro hook
-import { Spinner, PackageIcon, ArrowLeftIcon } from '../components/ui';
+import { Spinner, PackageIcon } from '../components/ui';
+import { useNavigate, Navigate } from 'react-router-dom';
 
 // El componente ya no necesita props para el login. ¡Más limpio!
 const LoginPage = () => {
     // Obtenemos todo lo que necesitamos del contexto
-    const { login, loading, error } = useAuth();
+    const { login, loading, error, token } = useAuth();
+    const navigate = useNavigate();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -13,8 +15,16 @@ const LoginPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         // Llamamos a la función de login del contexto
-        await login(email, password);
+        const success = await login(email, password);
+        if (success) {
+            navigate('/', { replace: true });
+        }
     };
+
+    // Si ya hay un token, no mostramos el login, redirigimos directamente.
+    if (token) {
+        return <Navigate to="/" replace />;
+    }
 
     return (
         <div className="min-h-screen bg-blue-600 flex flex-col justify-center items-center p-4 font-sans">

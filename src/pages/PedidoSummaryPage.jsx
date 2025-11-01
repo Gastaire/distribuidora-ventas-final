@@ -7,10 +7,10 @@ import { ArrowLeftIcon, Spinner, PlusIcon } from '../components/ui';
 const PedidoSummaryPage = () => {
     const navigate = useNavigate();
     const { clienteLocalId } = useParams();
-    const { openPedidos, updateCart, savePedido } = usePedidos();
+    const { openPedidos, updateCart, savePedido, editingPedido } = usePedidos();
     
     const [cliente, setCliente] = useState(null);
-    const [notas, setNotas] = useState('');
+    const [notas, setNotas] = useState(editingPedido?.notas_entrega || '');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -44,13 +44,15 @@ const PedidoSummaryPage = () => {
             setLoading(false);
         }
     };
+    
+    const goBackPath = editingPedido ? `/pedidos/editar/${editingPedido.local_id}` : `/pedidos/nuevo/${clienteLocalId}`;
 
     const totalPedido = cart.reduce((acc, item) => acc + (item.producto.precio_unitario * item.cantidad), 0);
 
     return (
         <div className="flex flex-col h-screen bg-gray-100">
             <header className="bg-white p-4 shadow-md sticky top-0 flex items-center gap-4 z-10">
-                <button onClick={() => navigate(-1)} className="text-blue-600" aria-label="Volver">
+                <button onClick={() => navigate(goBackPath)} className="text-blue-600" aria-label="Volver">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
                 <div>
@@ -59,8 +61,8 @@ const PedidoSummaryPage = () => {
                 </div>
             </header>
             <main className="flex-1 overflow-y-auto p-4">
-                <button onClick={() => navigate(-1)} className="w-full bg-blue-100 text-blue-800 font-semibold py-3 rounded-lg mb-4 flex items-center justify-center gap-2">
-                    <PlusIcon className="h-5 w-5"/> Agregar más productos
+                <button onClick={() => navigate(goBackPath)} className="w-full bg-blue-100 text-blue-800 font-semibold py-3 rounded-lg mb-4 flex items-center justify-center gap-2">
+                    <PlusIcon className="h-5 w-5"/> {editingPedido ? 'Modificar productos' : 'Agregar más productos'}
                 </button>
                 {cart.map(item => (
                     <div key={item.producto.id} className="bg-white p-3 rounded-lg shadow mb-3 flex items-center gap-4">
@@ -87,7 +89,7 @@ const PedidoSummaryPage = () => {
                 </div>
                 {error && <p className="text-red-500 text-sm mb-2 text-center">{error}</p>}
                 <button onClick={handleSave} disabled={loading || cart.length === 0} className="w-full bg-green-500 text-white font-bold py-3 rounded-lg disabled:bg-gray-400 flex items-center justify-center">
-                    {loading ? <Spinner /> : 'Confirmar Pedido'}
+                    {loading ? <Spinner /> : (editingPedido ? 'Confirmar Cambios' : 'Confirmar Pedido')}
                 </button>
             </footer>
         </div>
