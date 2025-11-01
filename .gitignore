@@ -1,0 +1,73 @@
+# Archivo .gitignore para el proyecto Frontend (Vite + React)
+
+# ----------------------------------------------------------------
+# 1. Dependencias y compilación
+# ----------------------------------------------------------------
+
+# Ignorar la carpeta de dependencias de Node.js
+# Esta es la regla más importante.
+/node_modules
+
+# Ignorar el directorio de compilación de producción generado por Vite.
+/dist
+
+# Ignorar el directorio de compilación para Server-Side Rendering (si se usara).
+/dist-ssr
+
+# ----------------------------------------------------------------
+# 2. Archivos de entorno y configuración local
+# ----------------------------------------------------------------
+
+# Ignorar todos los archivos de variables de entorno locales.
+# ¡NUNCA subas archivos .env con secretos (como claves de API) a un repositorio!
+# Es una buena práctica crear un archivo .env.example con las variables necesarias
+# pero sin sus valores, y SÍ subir ese archivo al repositorio.
+.env.local
+.env.*.local
+
+# ----------------------------------------------------------------
+# 3. Logs y reportes de errores
+# ----------------------------------------------------------------
+
+# Manteniendo la sección de logs que ya tenías, es excelente.
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ----------------------------------------------------------------
+# 4. Archivos de sistema operativo y editor de código
+# ----------------------------------------------------------------
+
+# Archivos de macOS
+.DS_Store
+
+# Archivos del editor Visual Studio Code (excepto las extensiones recomendadas)
+.vscode/*
+!.vscode/extensions.json
+
+# Archivos del editor JetBrains (WebStorm, etc.)
+.idea
+
+# Archivos de Visual Studio
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ----------------------------------------------------------------
+# 5. Archivos específicos de herramientas y testing
+# ----------------------------------------------------------------
+
+# Directorio de caché de Vite.
+.vite/
+
+# Directorio de reportes de cobertura de tests.
+/coverage
+
+# Archivos temporales de TypeScript
+*.tsbuildinfo
