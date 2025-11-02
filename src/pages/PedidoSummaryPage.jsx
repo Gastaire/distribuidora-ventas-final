@@ -7,11 +7,15 @@ import { ArrowLeftIcon, Spinner, PlusIcon } from '../components/ui';
 const PedidoSummaryPage = () => {
     const navigate = useNavigate();
     const { clienteLocalId } = useParams();
-    const { openPedidos, updateCart, savePedido, editingPedido } = usePedidos();
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Obtenemos las notas y la función para actualizarlas desde el contexto.
+    const { openPedidos, updateCart, savePedido, editingPedido, draftNotes, updateNotes } = usePedidos();
     
     const [cliente, setCliente] = useState(null);
-    const [notas, setNotas] = useState(editingPedido?.notas_entrega || '');
+    // El estado local `notas` ya no es necesario, lo leemos directamente del contexto.
+    const notas = draftNotes[clienteLocalId] || '';
     const [loading, setLoading] = useState(false);
+    // --- FIN DE LA MODIFICACIÓN ---
     const [error, setError] = useState('');
 
     const cart = openPedidos[clienteLocalId] || [];
@@ -79,7 +83,16 @@ const PedidoSummaryPage = () => {
                 ))}
                 <div className="mt-4">
                     <label htmlFor="notas" className="block text-sm font-medium text-gray-700 mb-1">Notas para la entrega</label>
-                    <textarea id="notas" value={notas} onChange={e => setNotas(e.target.value)} rows="3" className="w-full p-2 border rounded-lg" placeholder="Ej: Dejar en el depósito del fondo..."></textarea>
+                    {/* --- INICIO DE LA MODIFICACIÓN: Conectar el textarea al contexto --- */}
+                    <textarea 
+                        id="notas" 
+                        value={notas} 
+                        onChange={e => updateNotes(clienteLocalId, e.target.value)} 
+                        rows="3" 
+                        className="w-full p-2 border rounded-lg" 
+                        placeholder="Ej: Dejar en el depósito del fondo..."
+                    ></textarea>
+                    {/* --- FIN DE LA MODIFICACIÓN --- */}
                 </div>
             </main>
             <footer className="bg-white p-4 shadow-inner sticky bottom-0 border-t">

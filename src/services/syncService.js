@@ -88,8 +88,20 @@ async function downloadServerData(token) {
         
         // Sincronización de productos
         if (productosData.productos && Array.isArray(productosData.productos)) {
-            await db.productos.clear(); // Limpiamos para evitar productos viejos
-            await db.productos.bulkPut(productosData.productos);
+            // 1. Filtramos solo los productos que tienen un 'id' para evitar errores.
+            const productosValidos = productosData.productos.filter(p => p.id != null);
+
+            // 2. Creamos un Map para eliminar duplicados por 'id'. Si la API envía dos productos
+            // con el mismo id, el Map se asegura de que solo nos quedemos con el último.
+            const productosUnicosMap = new Map(productosValidos.map(p => [p.id, p]));
+            const productosFinales = Array.from(productosUnicosMap.values());
+
+            // 3. Limpiamos la tabla local y guardamos solo los productos válidos y únicos.
+            await db.productos.clear();
+            if (productosFinales.length > 0) {
+                await db.productos.bulkPut(productosFinales);
+                console.log(`Sincronizados ${productosFinales.length} productos válidos y únicos.`);
+            }
         }
         
         // Sincronización de listas de precios

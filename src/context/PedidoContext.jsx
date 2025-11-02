@@ -8,6 +8,7 @@ const PedidoContext = createContext(null);
 export const PedidoProvider = ({ children }) => {
     const { user, token } = useAuth();
     const [openPedidos, setOpenPedidos] = useState({});
+    const [draftNotes, setDraftNotes] = useState({});
     const [editingPedido, setEditingPedido] = useState(null);
 
     useEffect(() => {
@@ -17,15 +18,22 @@ export const PedidoProvider = ({ children }) => {
                 acc[b.cliente_local_id] = b.cart;
                 return acc;
             }, {});
+            const notesMap = borradoresArray.reduce((acc, b) => {
+                acc[b.cliente_local_id] = b.notes || ''; 
+                return acc;
+            }, {});
             setOpenPedidos(borradoresMap);
+            setDraftNotes(notesMap);
         };
         loadBorradores();
     }, []);
 
-    const saveBorradorToDB = async (clienteLocalId, cart) => {
+    // --- INICIO DE LA MODIFICACIÓN ---
+    const saveBorradorToDB = async (clienteLocalId, cart, notes) => {
         if (!clienteLocalId) return;
         try {
-            await db.borradores.put({ cliente_local_id: clienteLocalId, cart });
+            // Ahora guardamos tanto el carrito como las notas.
+            await db.borradores.put({ cliente_local_id: clienteLocalId, cart, notes });
         } catch (error) {
             console.error("Error al guardar borrador en Dexie:", error);
         }
@@ -34,28 +42,46 @@ export const PedidoProvider = ({ children }) => {
     const updateCart = (clienteLocalId, newCart) => {
         setOpenPedidos(prev => {
             const updated = { ...prev, [clienteLocalId]: newCart };
-            saveBorradorToDB(clienteLocalId, newCart);
+            // Pasamos las notas actuales para que no se borren.
+            saveBorradorToDB(clienteLocalId, newCart, draftNotes[clienteLocalId] || '');
             return updated;
         });
     };
     
+    const updateNotes = (clienteLocalId, newNotes) => {
+        setDraftNotes(prev => {
+            const updatedNotes = { ...prev, [clienteLocalId]: newNotes };
+            // Guardamos las notas junto con el carrito actual.
+            saveBorradorToDB(clienteLocalId, openPedidos[clienteLocalId] || [], newNotes);
+            return updatedNotes;
+        });
+    };
+
     const discardCart = (clienteLocalId) => {
         setOpenPedidos(prev => {
             const { [clienteLocalId]: _, ...rest } = prev;
             return rest;
         });
+        // También limpiamos las notas del borrador.
+        setDraftNotes(prev => {
+            const { [clienteLocalId]: _, ...rest } = prev;
+            return rest;
+        });
         db.borradores.delete(clienteLocalId);
-        setEditingPedido(null); // Limpiamos el estado de edición
+        setEditingPedido(null);
     };
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const loadPedidoForEdit = async (pedido) => {
         const productos = await db.productos.toArray();
         const cart = pedido.items.map(item => {
             const producto = productos.find(p => p.id === item.producto_id);
             return producto ? { producto, cantidad: item.cantidad } : null;
-        }).filter(Boolean); // Filtra items si el producto ya no existe
+        }).filter(Boolean);
 
         updateCart(pedido.cliente_local_id, cart);
+        // Al cargar para editar, también cargamos las notas existentes del pedido.
+        updateNotes(pedido.cliente_local_id, pedido.notas_entrega || '');
         setEditingPedido(pedido);
         return true;
     };
@@ -68,7 +94,6 @@ export const PedidoProvider = ({ children }) => {
             cantidad: item.cantidad,
         }));
 
-        // --- LÓGICA DE EDICIÓN ---
         if (editingPedido) {
             const pedidoActualizadoLocal = {
                 ...editingPedido,
@@ -83,18 +108,14 @@ export const PedidoProvider = ({ children }) => {
                 try {
                     await apiUpdatePedido(editingPedido.id, { items: itemsParaGuardar, notas_entrega: notas }, token);
                     await db.pedidos.update(editingPedido.local_id, { status: 'synced' });
-                    discardCart(cliente.local_id);
-                    return { success: true, message: "Pedido actualizado y sincronizado." };
                 } catch (apiError) {
-                    discardCart(cliente.local_id);
-                    return { success: true, message: "Pedido actualizado localmente. Se sincronizará más tarde." };
+                    // La actualización local ya está hecha, solo logueamos el error de sync
                 }
             }
             discardCart(cliente.local_id);
             return { success: true, message: "Pedido actualizado localmente." };
         }
 
-        // --- LÓGICA DE CREACIÓN (la que ya teníamos) ---
         const nuevoPedidoLocal = {
             local_id: `local_pedido_${Date.now()}`,
             cliente_id: cliente.id,
@@ -124,7 +145,7 @@ export const PedidoProvider = ({ children }) => {
         return { success: true, message: "Pedido guardado localmente." };
     };
 
-    const value = { openPedidos, editingPedido, updateCart, discardCart, savePedido, loadPedidoForEdit };
+    const value = { openPedidos, editingPedido, draftNotes, updateCart, updateNotes, discardCart, savePedido, loadPedidoForEdit };
 
     return <PedidoContext.Provider value={value}>{children}</PedidoContext.Provider>;
 };

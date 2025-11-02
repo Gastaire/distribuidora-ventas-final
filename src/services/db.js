@@ -5,7 +5,7 @@ export const db = new Dexie('DistribuidoraDB');
 
 // Definimos la estructura (el "schema") de nuestra base de datos.
 // Esta es la misma configuración que tenías, pero ahora en un módulo JS.
-db.version(6).stores({
+db.version(8).stores({
     clientes: '++local_id, id, nombre_comercio, status, retries', 
     productos: 'id, nombre, archivado',
     pedidos: '++local_id, id, fecha, status, retries, cliente_id, cliente_local_id, estado',

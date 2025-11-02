@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { ArrowLeftIcon, PlusIcon, SearchIcon, Spinner, EditIcon } from '../components/ui';
+// --- INICIO DE LA MODIFICACIÓN ---
+import { ArrowLeftIcon, PlusIcon, SearchIcon, Spinner, EditIcon, ShoppingCartIcon } from '../components/ui';
+import { usePedidos } from '../context/PedidoContext';
+// --- FIN DE LA MODIFICACIÓN ---
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -19,6 +22,9 @@ const StatusBadge = ({ status }) => {
 
 const ClientesPage = () => {
     const navigate = useNavigate();
+    // --- INICIO DE LA MODIFICACIÓN ---
+    const { openPedidos } = usePedidos();
+    // --- FIN DE LA MODIFICACIÓN ---
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -66,18 +72,28 @@ const ClientesPage = () => {
                 {loading && <div className="text-center py-10"><Spinner className="border-blue-600 h-8 w-8 mx-auto" /></div>}
                 {!loading && filteredClientes.length > 0 ? (
                     <div className="space-y-3">
-                        {filteredClientes.map(cliente => (
-                            <div key={cliente.local_id} className="bg-white p-4 rounded-lg shadow flex justify-between items-center">
-                                <div className="flex-1 cursor-pointer" onClick={() => navigate(`/pedidos/nuevo/${cliente.local_id}`)}>
-                                    <p className="font-bold text-gray-800">{cliente.nombre_comercio}</p>
-                                    <p className="text-sm text-gray-600">{cliente.direccion}</p>
-                                    <StatusBadge status={cliente.status} />
+                        {filteredClientes.map(cliente => {
+                            // --- INICIO DE LA MODIFICACIÓN ---
+                            const tienePedidoAbierto = openPedidos[cliente.local_id] && openPedidos[cliente.local_id].length > 0;
+                            return (
+                                <div key={cliente.local_id} className="bg-white p-4 rounded-lg shadow flex justify-between items-center">
+                                    <div className="flex-1 cursor-pointer" onClick={() => navigate(`/pedidos/nuevo/${cliente.local_id}`)}>
+                                        <div className="flex items-center gap-2">
+                                            {tienePedidoAbierto && <ShoppingCartIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />}
+                                            <p className="font-bold text-gray-800 truncate">{cliente.nombre_comercio}</p>
+                                        </div>
+                                        <p className="text-sm text-gray-600 pl-7">{cliente.direccion || 'Sin dirección'}</p>
+                                        <div className="pl-7 mt-1">
+                                            <StatusBadge status={cliente.status} />
+                                        </div>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); navigate(`/clientes/editar/${cliente.local_id}`); }} className="p-2 text-gray-500 hover:text-blue-600" title="Editar cliente">
+                                        <EditIcon className="h-5 w-5" />
+                                    </button>
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); navigate(`/clientes/editar/${cliente.local_id}`); }} className="p-2 text-gray-500 hover:text-blue-600" title="Editar cliente">
-                                    <EditIcon className="h-5 w-5" />
-                                </button>
-                            </div>
-                        ))}
+                            );
+                            // --- FIN DE LA MODIFICACIÓN ---
+                        })}
                     </div>
                 ) : (
                     !loading && <p className="text-center text-gray-500 mt-8">No se encontraron clientes.</p>
