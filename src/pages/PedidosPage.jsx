@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { useSync } from '../context/SyncContext';
 import { usePedidos } from '../context/PedidoContext';
-import { ArrowLeftIcon, SyncIcon, Spinner, EditIcon, EyeIcon, TrashIcon, HistoryIcon } from '../components/ui';
+import { ArrowLeftIcon, SyncIcon, Spinner, EditIcon, EyeIcon, TrashIcon, HistoryIcon, ShoppingCartIcon } from '../components/ui';
 
 const StatusBadge = ({ status }) => {
     const styles = {
