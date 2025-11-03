@@ -4,14 +4,11 @@ import { db } from '../services/db';
 import { usePedidos } from '../context/PedidoContext';
 import { ArrowLeftIcon, SearchIcon, ShoppingCartIcon, Spinner } from '../components/ui';
 
-// --- INICIO DE LA MODIFICACIÓN: Función para formatear precios ---
 const formatPrice = (price) => {
     const numPrice = Number(price);
     if (isNaN(numPrice)) return '$0';
-    // Si el número es entero, no muestra decimales. Si no, muestra 2.
     return numPrice % 1 === 0 ? `$${numPrice}` : `$${numPrice.toFixed(2)}`;
 };
-// --- FIN DE LA MODIFICACIÓN ---
 
 const NuevoPedidoPage = () => {
     const navigate = useNavigate();
@@ -29,6 +26,9 @@ const NuevoPedidoPage = () => {
 
     const timerRef = useRef(null);
     const speedRef = useRef(200);
+    // --- INICIO DE LA MODIFICACIÓN: Cerrojo para el doble toque ---
+    const adjustingLock = useRef(false);
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const cart = openPedidos[clienteLocalId] || [];
 
@@ -107,6 +107,11 @@ const NuevoPedidoPage = () => {
     };
 
     const startAdjusting = (amount) => {
+        // --- INICIO DE LA MODIFICACIÓN: Lógica del cerrojo ---
+        if (adjustingLock.current) return;
+        adjustingLock.current = true;
+        // --- FIN DE LA MODIFICACIÓN ---
+
         adjustQuantity(amount); 
         speedRef.current = 200; 
         
@@ -121,6 +126,10 @@ const NuevoPedidoPage = () => {
     };
 
     const stopAdjusting = () => {
+        // --- INICIO DE LA MODIFICACIÓN: Lógica del cerrojo ---
+        // Liberamos el cerrojo un instante después para no bloquear el siguiente toque legítimo.
+        setTimeout(() => { adjustingLock.current = false; }, 50);
+        // --- FIN DE LA MODIFICACIÓN ---
         clearTimeout(timerRef.current);
     };
 
@@ -168,7 +177,6 @@ const NuevoPedidoPage = () => {
                             <img loading="lazy" src={producto.imagen_url || 'https://placehold.co/100x100/e2e8f0/e2e8f0?text=...'} alt={producto.nombre} className="w-16 h-16 rounded-md object-cover"/>
                             <div className="flex-1 overflow-hidden">
                                 <p className="font-semibold text-gray-800 truncate">{producto.nombre}</p>
-                                {/* --- MODIFICACIÓN: Usar la nueva función de formato de precio --- */}
                                 <p className="text-sm text-blue-600 font-bold">{formatPrice(producto.precio_unitario)}</p>
                                 <p className={`text-xs font-bold ${producto.stock === 'Sí' ? 'text-green-500' : 'text-red-500'}`}>
                                     Stock: {producto.stock}
@@ -207,11 +215,9 @@ const NuevoPedidoPage = () => {
                         className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center" 
                         onClick={e => e.stopPropagation()}
                     >
-                        {/* --- INICIO DE LA MODIFICACIÓN: Añadir imagen al modal --- */}
                         <img loading="lazy" src={selectedProduct?.imagen_url || 'https://placehold.co/100x100/e2e8f0/e2e8f0?text=...'} alt={selectedProduct?.nombre} className="w-24 h-24 rounded-lg object-cover mx-auto mb-4"/>
                         <h3 id="modal-title" className="text-lg font-bold text-gray-800 mb-1 truncate">{selectedProduct?.nombre}</h3>
                         <p className="text-sm text-blue-600 font-bold mb-4">{formatPrice(selectedProduct?.precio_unitario)} c/u</p>
-                        {/* --- FIN DE LA MODIFICACIÓN --- */}
                         
                         <div className="flex items-center justify-center gap-4 mb-6">
                             <button 

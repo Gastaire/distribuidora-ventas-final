@@ -4,13 +4,11 @@ import { db } from '../services/db';
 import { usePedidos } from '../context/PedidoContext';
 import { ArrowLeftIcon, SearchIcon, ShoppingCartIcon, Spinner } from '../components/ui';
 
-// --- INICIO DE LA MODIFICACIÓN: Añadir función de formato de precio ---
 const formatPrice = (price) => {
     const numPrice = Number(price);
     if (isNaN(numPrice)) return '$0';
     return numPrice % 1 === 0 ? `$${numPrice}` : `$${numPrice.toFixed(2)}`;
 };
-// --- FIN DE LA MODIFICACIÓN ---
 
 const PedidoEditPage = () => {
     const navigate = useNavigate();
@@ -22,12 +20,13 @@ const PedidoEditPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // --- INICIO DE LA MODIFICACIÓN: Añadir estados y refs para el modal ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [modalQuantity, setModalQuantity] = useState('1');
     const timerRef = useRef(null);
     const speedRef = useRef(200);
+    // --- INICIO DE LA MODIFICACIÓN: Cerrojo para el doble toque ---
+    const adjustingLock = useRef(false);
     // --- FIN DE LA MODIFICACIÓN ---
 
     const clienteLocalId = editingPedido?.cliente_local_id;
@@ -42,12 +41,10 @@ const PedidoEditPage = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // --- INICIO DE LA MODIFICACIÓN: Usar filtro robusto ---
                 const [clienteData, productosData] = await Promise.all([
                     db.clientes.get(editingPedido.cliente_local_id),
                     db.productos.filter(p => p.archivado === false).toArray()
                 ]);
-                // --- FIN DE LA MODIFICACIÓN ---
                 setCliente(clienteData);
                 setProductos(productosData);
             } catch (error) {
@@ -59,7 +56,6 @@ const PedidoEditPage = () => {
         fetchData();
     }, [editingPedido, navigate]);
 
-    // --- INICIO DE LA MODIFICACIÓN: Lógica completa del modal ---
     const openModal = (producto) => {
         const itemInCart = cart.find(item => item.producto.id === producto.id);
         setSelectedProduct(producto);
@@ -111,6 +107,11 @@ const PedidoEditPage = () => {
     };
 
     const startAdjusting = (amount) => {
+        // --- INICIO DE LA MODIFICACIÓN: Lógica del cerrojo ---
+        if (adjustingLock.current) return;
+        adjustingLock.current = true;
+        // --- FIN DE LA MODIFICACIÓN ---
+        
         adjustQuantity(amount); 
         speedRef.current = 200; 
         
@@ -125,9 +126,11 @@ const PedidoEditPage = () => {
     };
 
     const stopAdjusting = () => {
+        // --- INICIO DE LA MODIFICACIÓN: Lógica del cerrojo ---
+        setTimeout(() => { adjustingLock.current = false; }, 50);
+        // --- FIN DE LA MODIFICACIÓN ---
         clearTimeout(timerRef.current);
     };
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const filteredProductos = productos.filter(p =>
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -196,7 +199,6 @@ const PedidoEditPage = () => {
                 </footer>
             )}
 
-            {/* --- INICIO DE LA MODIFICACIÓN: Añadir JSX del modal --- */}
             {isModalOpen && (
                 <div 
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
@@ -252,7 +254,6 @@ const PedidoEditPage = () => {
                     </div>
                 </div>
             )}
-            {/* --- FIN DE LA MODIFICACIÓN --- */}
         </div>
     );
 };
