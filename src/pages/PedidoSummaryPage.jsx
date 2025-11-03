@@ -3,19 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { usePedidos } from '../context/PedidoContext';
 import { db } from '../services/db';
 import { ArrowLeftIcon, Spinner, PlusIcon } from '../components/ui';
+import { generatePedidoPDF } from '../services/pdfService'; // <-- IMPORTAMOS EL SERVICIO DE PDF
 
 const PedidoSummaryPage = () => {
     const navigate = useNavigate();
     const { clienteLocalId } = useParams();
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Obtenemos las notas y la función para actualizarlas desde el contexto.
     const { openPedidos, updateCart, savePedido, editingPedido, draftNotes, updateNotes } = usePedidos();
     
     const [cliente, setCliente] = useState(null);
-    // El estado local `notas` ya no es necesario, lo leemos directamente del contexto.
     const notas = draftNotes[clienteLocalId] || '';
     const [loading, setLoading] = useState(false);
-    // --- FIN DE LA MODIFICACIÓN ---
     const [error, setError] = useState('');
 
     const cart = openPedidos[clienteLocalId] || [];
@@ -40,7 +37,23 @@ const PedidoSummaryPage = () => {
         setError('');
         try {
             const result = await savePedido(cliente, cart, notas);
-            alert(result.message); // Usamos un alert simple por ahora
+            
+            // --- INICIO DE LA MODIFICACIÓN: Preguntar para generar PDF ---
+            const confirmed = window.confirm(`${result.message}\n\n¿Quieres guardar una copia del pedido en PDF?`);
+            if (confirmed) {
+                // Reconstruimos el objeto pedido con los datos que tenemos a mano para el PDF
+                const pedidoParaPDF = {
+                    ...(editingPedido || {}),
+                    local_id: editingPedido ? editingPedido.local_id : `local_${Date.now()}`,
+                    cliente_nombre_snapshot: cliente.nombre_comercio,
+                    fecha: new Date().toISOString(),
+                    items: cart.map(item => ({...item, ...item.producto})), // Combinamos para tener todos los datos
+                    notas_entrega: notas
+                };
+                await generatePedidoPDF(pedidoParaPDF, { action: 'download' });
+            }
+            // --- FIN DE LA MODIFICACIÓN ---
+
             navigate('/', { replace: true });
         } catch (err) {
             setError(err.message);
@@ -83,7 +96,6 @@ const PedidoSummaryPage = () => {
                 ))}
                 <div className="mt-4">
                     <label htmlFor="notas" className="block text-sm font-medium text-gray-700 mb-1">Notas para la entrega</label>
-                    {/* --- INICIO DE LA MODIFICACIÓN: Conectar el textarea al contexto --- */}
                     <textarea 
                         id="notas" 
                         value={notas} 
@@ -92,7 +104,6 @@ const PedidoSummaryPage = () => {
                         className="w-full p-2 border rounded-lg" 
                         placeholder="Ej: Dejar en el depósito del fondo..."
                     ></textarea>
-                    {/* --- FIN DE LA MODIFICACIÓN --- */}
                 </div>
             </main>
             <footer className="bg-white p-4 shadow-inner sticky bottom-0 border-t">

@@ -12,7 +12,8 @@ import NuevoPedidoPage from './pages/NuevoPedidoPage';
 import PedidoSummaryPage from './pages/PedidoSummaryPage';
 import PedidosPage from './pages/PedidosPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
-import PedidoEditPage from './pages/PedidoEditPage'; // <-- NUEVO
+import PedidoEditPage from './pages/PedidoEditPage';
+import PedidoDetailPage from './pages/PedidoDetailPage'; // <-- NUEVO
 
 function App() {
   const { user } = useAuth();
@@ -27,13 +28,14 @@ function App() {
           <Route path="/clientes/nuevo" element={<ClienteFormPage />} />
           <Route path="/clientes/editar/:localId" element={<ClienteFormPage />} />
           <Route path="/pedidos/nuevo/:clienteLocalId" element={<NuevoPedidoPage />} />
-          
-          {/* --- NUEVA RUTA DE EDICIÓN --- */}
           <Route path="/pedidos/editar/:pedidoLocalId" element={<PedidoEditPage />} />
-          
           <Route path="/pedidos/resumen/:clienteLocalId" element={<PedidoSummaryPage />} />
           <Route path="/pedidos" element={<PedidosPage />} />
           <Route path="/configuracion" element={<ConfiguracionPage />} />
+
+          {/* --- NUEVA RUTA DE DETALLE --- */}
+          <Route path="/pedidos/detalle/:pedidoId" element={<PedidoDetailPage />} />
+
         </Route>
       </Route>
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />

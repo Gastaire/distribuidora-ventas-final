@@ -1,5 +1,12 @@
 import { db } from './db';
-import { createCliente, createPedido, updatePedido } from './api';
+// --- INICIO DE MODIFICACIÓN ---
+import { 
+    createCliente, 
+    createPedido, 
+    updatePedido, 
+    getPedidosStatusFromServer 
+} from './api';
+// --- FIN DE MODIFICACIÓN ---
 
 const API_URL = 'https://distriapi.onzacore.site/api';
 
@@ -12,12 +19,11 @@ async function syncClientes(token) {
     let created = 0, failed = 0, updated = 0;
     for (const cliente of clientesPendientes) {
         try {
-            // Si el cliente ya tiene un ID del servidor, es una actualización
             if (cliente.id) {
                 const updatedCliente = await updateCliente(cliente, token);
                 await db.clientes.update(cliente.local_id, { status: 'synced', retries: 0 });
                 updated++;
-            } else { // Si no, es una creación
+            } else { 
                 const newClienteFromServer = await createCliente(cliente, token);
                 await db.transaction('rw', db.clientes, db.pedidos, async () => {
                     await db.clientes.update(cliente.local_id, { id: newClienteFromServer.id, status: 'synced', retries: 0 });
@@ -50,12 +56,11 @@ async function syncPedidos(token) {
                 items: pedido.items,
                 notas_entrega: pedido.notas_entrega,
             };
-            // Si el pedido ya tiene un ID del servidor, es una actualización
             if (pedido.id) {
                 await updatePedido(pedido.id, pedidoParaApi, token);
                 await db.pedidos.update(pedido.local_id, { status: 'synced', retries: 0 });
                 updated++;
-            } else { // Si no, es una creación
+            } else { 
                 const newPedidoFromServer = await createPedido(pedidoParaApi, token);
                 await db.pedidos.update(pedido.local_id, { id: newPedidoFromServer.pedido_id, status: 'synced', retries: 0 });
                 created++;
@@ -72,7 +77,7 @@ async function syncPedidos(token) {
 async function downloadServerData(token) {
     const [clientesRes, productosRes, listasPreciosRes] = await Promise.all([
         fetch(`${API_URL}/clientes`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/productos?format=full`, { headers: { Authorization: `Bearer ${token}` } }), // Pedimos formato full
+        fetch(`${API_URL}/productos?format=full`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/listas-precios/sync-data`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
 
@@ -81,38 +86,24 @@ async function downloadServerData(token) {
     }
 
     const clientesDelServidor = await clientesRes.json();
-    const productosData = await productosRes.json(); // Ahora es un objeto { productos, categorias }
+    const productosData = await productosRes.json();
     const listasDePreciosData = await listasPreciosRes.json();
 
     await db.transaction('rw', db.clientes, db.productos, db.listas_de_precios, db.lista_precios_items, async () => {
         
-        // Sincronización de productos
         if (productosData.productos && Array.isArray(productosData.productos)) {
-            // 1. Filtramos solo los productos que tienen un 'id' para evitar errores.
             const productosValidos = productosData.productos.filter(p => p.id != null);
-
-            // 2. Creamos un Map para eliminar duplicados por 'id'. Si la API envía dos productos
-            // con el mismo id, el Map se asegura de que solo nos quedemos con el último.
             const productosUnicosMap = new Map(productosValidos.map(p => [p.id, p]));
             const productosFinales = Array.from(productosUnicosMap.values());
-
-            // 3. Limpiamos la tabla local y guardamos solo los productos válidos y únicos.
             await db.productos.clear();
             if (productosFinales.length > 0) {
                 await db.productos.bulkPut(productosFinales);
-                console.log(`Sincronizados ${productosFinales.length} productos válidos y únicos.`);
             }
         }
         
-        // Sincronización de listas de precios
-        if (listasDePreciosData.listas) {
-            await db.listas_de_precios.bulkPut(listasDePreciosData.listas);
-        }
-        if (listasDePreciosData.items) {
-            await db.lista_precios_items.bulkPut(listasDePreciosData.items);
-        }
+        if (listasDePreciosData.listas) await db.listas_de_precios.bulkPut(listasDePreciosData.listas);
+        if (listasDePreciosData.items) await db.lista_precios_items.bulkPut(listasDePreciosData.items);
 
-        // Sincronización de clientes
         const clientesLocales = await db.clientes.toArray();
         const clientesLocalesMap = new Map(clientesLocales.map(c => [c.id, c]));
         const clientesParaGuardar = [];
@@ -120,7 +111,6 @@ async function downloadServerData(token) {
         for (const clienteSrv of clientesDelServidor) {
             const clienteLocal = clientesLocalesMap.get(clienteSrv.id);
             if (clienteLocal) {
-                // Si el cliente local está pendiente de sincronizar, no lo sobrescribimos
                 if (clienteLocal.status !== 'pending_sync') {
                     clientesParaGuardar.push({ ...clienteLocal, ...clienteSrv, status: 'synced' });
                 }
@@ -134,7 +124,42 @@ async function downloadServerData(token) {
     });
 }
 
-// --- FUNCIÓN PRINCIPAL DE SINCRONIZACIÓN ---
+// --- INICIO DE NUEVA FUNCIÓN ---
+/**
+ * Sincroniza el estado de los pedidos locales con el servidor.
+ */
+async function syncPedidosStatus(token) {
+    // 1. Obtener todos los pedidos locales que ya están sincronizados y tienen un ID de servidor.
+    const syncedPedidos = await db.pedidos.where('status').equals('synced').and(p => !!p.id).toArray();
+    if (syncedPedidos.length === 0) return 0;
+
+    const pedidoIds = syncedPedidos.map(p => p.id);
+
+    // 2. Consultar al servidor por el estado actual de esos pedidos.
+    const serverStatuses = await getPedidosStatusFromServer(pedidoIds, token);
+    const statusMap = new Map(serverStatuses.map(s => [s.id, s.estado]));
+
+    let updatedCount = 0;
+    const updates = [];
+
+    // 3. Comparar y preparar actualizaciones.
+    for (const pedidoLocal of syncedPedidos) {
+        const serverStatus = statusMap.get(pedidoLocal.id);
+        // Si el estado del servidor existe y es diferente al local, lo actualizamos.
+        if (serverStatus && serverStatus !== pedidoLocal.estado) {
+            updates.push({ key: pedidoLocal.local_id, changes: { estado: serverStatus } });
+            updatedCount++;
+        }
+    }
+
+    // 4. Aplicar todas las actualizaciones a la base de datos local de una sola vez.
+    if (updates.length > 0) {
+        await db.pedidos.bulkUpdate(updates);
+    }
+    
+    return updatedCount;
+}
+// --- FIN DE NUEVA FUNCIÓN ---
 
 export const runSync = async (token) => {
     if (!navigator.onLine || !token) {
@@ -145,16 +170,22 @@ export const runSync = async (token) => {
         clientes: { created: 0, failed: 0, updated: 0 },
         pedidos: { created: 0, failed: 0, updated: 0 },
         downloaded: false,
+        statusesUpdated: 0, // <-- Nuevo campo para el resumen
     };
 
     // 1. Descargar datos maestros actualizados del servidor
     await downloadServerData(token);
     summary.downloaded = true;
 
-    // 2. Subir Clientes nuevos o modificados
+    // --- INICIO DE MODIFICACIÓN: Añadir sincronización de estados ---
+    // 2. Sincronizar estados de pedidos existentes (antes de subir nuevos)
+    summary.statusesUpdated = await syncPedidosStatus(token);
+    // --- FIN DE MODIFICACIÓN ---
+
+    // 3. Subir Clientes nuevos o modificados
     summary.clientes = await syncClientes(token);
     
-    // 3. Subir Pedidos nuevos o modificados
+    // 4. Subir Pedidos nuevos o modificados
     summary.pedidos = await syncPedidos(token);
 
     return summary;

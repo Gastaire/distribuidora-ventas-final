@@ -88,8 +88,6 @@ export const createPedido = async (pedidoData, token) => {
     return data;
 };
 
-// --- NUEVA FUNCIÓN AÑADIDA ---
-
 /**
  * Actualiza un pedido existente en el servidor.
  * @param {number} pedidoId - El ID del servidor del pedido a actualizar.
@@ -109,3 +107,41 @@ export const updatePedido = async (pedidoId, pedidoData, token) => {
     }
     return data;
 };
+
+/**
+ * Obtiene el historial de pedidos de un vendedor desde el servidor.
+ * @param {string} token - Token de autenticación.
+ * @returns {Promise<Array>} - Una lista de pedidos históricos.
+ */
+export const getMisPedidosHistoricos = async (token) => {
+    const response = await fetch(`${API_URL}/pedidos/mis-pedidos-historicos`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || 'Error al obtener el historial de pedidos.');
+    }
+    return data;
+};
+
+// --- INICIO DE NUEVA FUNCIÓN ---
+/**
+ * Obtiene los estados actuales de una lista de pedidos desde el servidor.
+ * @param {number[]} pedidoIds - Un array de IDs de pedidos del servidor.
+ * @param {string} token - Token de autenticación.
+ * @returns {Promise<Array<{id: number, estado: string}>>} - Una lista de objetos con id y estado.
+ */
+export const getPedidosStatusFromServer = async (pedidoIds, token) => {
+    if (!pedidoIds || pedidoIds.length === 0) {
+        return []; // No hay nada que consultar
+    }
+    const response = await fetch(`${API_URL}/pedidos/status?ids=${pedidoIds.join(',')}`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || 'Error al obtener los estados de los pedidos.');
+    }
+    return data;
+};
+// --- FIN DE NUEVA FUNCIÓN ---
