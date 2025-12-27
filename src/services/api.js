@@ -1,5 +1,5 @@
 // La URL base de tu backend. Es una buena práctica tenerla en un solo lugar.
-const API_URL = 'https://distriapi2.onzacore.site/api';
+const API_URL = 'https://distriapi.onzacore.site/api';
 
 /**
  * Realiza la llamada de login al backend.
