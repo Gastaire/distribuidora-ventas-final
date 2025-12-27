@@ -8,7 +8,7 @@ import {
 } from './api';
 // --- FIN DE MODIFICACIÓN ---
 
-const API_URL = 'https://distriapi2.onzacore.site/api';
+const API_URL = 'https://distriapi.onzacore.site/api';
 
 // --- FUNCIONES DE SINCRONIZACIÓN INDIVIDUALES ---
 
