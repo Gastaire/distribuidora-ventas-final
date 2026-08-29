@@ -131,8 +131,8 @@ const ClienteFormPage = () => {
                         <input id="nombre_contacto" type="text" name="nombre_contacto" value={formData.nombre_contacto} onChange={handleChange} className="w-full p-2 border rounded-lg mt-1" />
                     </div>
                     <div>
-                        <label htmlFor="direccion" className="text-sm font-medium text-gray-700">Dirección</label>
-                        <input id="direccion" type="text" name="direccion" value={formData.direccion} onChange={handleChange} className="w-full p-2 border rounded-lg mt-1" />
+                        <label htmlFor="direccion" className="text-sm font-medium text-gray-700">Detalles / Referencias</label>
+                        <input id="direccion" type="text" name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Ej: Al lado de la barbería, portón negro..." className="w-full p-2 border rounded-lg mt-1" />
                     </div>
                     <div>
                         <label htmlFor="telefono" className="text-sm font-medium text-gray-700">Teléfono</label>
