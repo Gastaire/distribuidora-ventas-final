@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../services/db';
 import { UsersIcon, ShoppingCartIcon, SettingsIcon, CloudOffIcon } from '../components/ui';
+import { getCronogramaZonas } from '../services/api';
 
 // Componente reutilizable para los botones de acción
 const ActionButton = ({ icon, text, onClick, badge, badgeColor }) => (
@@ -14,10 +15,12 @@ const ActionButton = ({ icon, text, onClick, badge, badgeColor }) => (
 );
 
 const HomePage = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const navigate = useNavigate();
     const [stats, setStats] = useState({ pedidosHoy: 0, totalVendidoHoy: 0, clientesVisitadosHoy: 0, pendientesSync: 0 });
     const [offlineMode, setOfflineMode] = useState(!navigator.onLine);
+    const [cronograma, setCronograma] = useState([]);
+    const [showFullWeek, setShowFullWeek] = useState(false);
 
     useEffect(() => {
         const updateStats = async () => {
@@ -43,7 +46,20 @@ const HomePage = () => {
             }
         };
 
+        const fetchCronograma = async () => {
+            if (!token) return;
+            try {
+                const data = await getCronogramaZonas(token);
+                if (data && Array.isArray(data)) {
+                    setCronograma(data);
+                }
+            } catch (e) {
+                // Fail silently
+            }
+        };
+
         updateStats();
+        fetchCronograma();
         const interval = setInterval(updateStats, 5000); // Actualiza cada 5 segundos
         
         const handleOnline = () => setOfflineMode(false);
@@ -56,10 +72,23 @@ const HomePage = () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, []);
+    }, [token]);
 
     const pendingCount = stats.pendientesSync;
     const badgeColor = pendingCount > 0 ? 'bg-yellow-500' : 'bg-green-500';
+
+    const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const hoyDow = new Date().getDay(); // 0=Dom, 1=Lun ...
+    const manyanaDow = (hoyDow + 1) % 7;
+
+    const getZonaParaDia = (dow) => {
+        const entrada = cronograma.find(e => {
+            if (!e.fecha) return false;
+            const d = new Date(e.fecha + 'T00:00:00');
+            return d.getDay() === dow;
+        });
+        return entrada ? entrada.zona_nombre : null;
+    };
 
     return (
         <div className="bg-white min-h-screen">
@@ -98,6 +127,57 @@ const HomePage = () => {
                     </div>
                 </div>
             </div>
+
+            {cronograma.length > 0 && (
+                <div className="px-4 pb-4">
+                    <div className="bg-blue-600 text-white rounded-xl p-4 shadow">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-sm">🗺️ Zonas de Reparto</h3>
+                            <button
+                                onClick={() => setShowFullWeek(v => !v)}
+                                className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full"
+                            >
+                                {showFullWeek ? 'Ver menos' : 'Ver semana'}
+                            </button>
+                        </div>
+                        
+                        {/* Hoy y Mañana siempre visibles */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-white bg-opacity-20 rounded-lg p-3">
+                                <p className="text-xs opacity-75">Hoy ({DIAS[hoyDow]})</p>
+                                <p className="font-bold text-sm mt-0.5">
+                                    {getZonaParaDia(hoyDow) || '—'}
+                                </p>
+                            </div>
+                            <div className="bg-white bg-opacity-10 rounded-lg p-3">
+                                <p className="text-xs opacity-75">Mañana ({DIAS[manyanaDow]})</p>
+                                <p className="font-bold text-sm mt-0.5">
+                                    {getZonaParaDia(manyanaDow) || '—'}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Semana completa (desplegable) */}
+                        {showFullWeek && (
+                            <div className="mt-3 space-y-1">
+                                {[1,2,3,4,5,6,0].map(dow => { // Lun a Dom
+                                    const zona = getZonaParaDia(dow);
+                                    const isHoy = dow === hoyDow;
+                                    return (
+                                        <div key={dow}
+                                            className={`flex justify-between items-center text-sm py-1.5 px-2 rounded-lg ${isHoy ? 'bg-white bg-opacity-25 font-bold' : 'opacity-80'}`}
+                                        >
+                                            <span>{DIAS[dow]}</span>
+                                            <span>{zona || '—'}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <main className="p-4 grid grid-cols-2 gap-4">
                 <ActionButton icon={<UsersIcon/>} text="Clientes" onClick={() => navigate('/clientes')} />
                 <ActionButton icon={<ShoppingCartIcon/>} text="Pedidos" onClick={() => navigate('/pedidos')} badge={pendingCount} badgeColor={badgeColor} />

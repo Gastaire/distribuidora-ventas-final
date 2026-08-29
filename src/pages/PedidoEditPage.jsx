@@ -68,16 +68,15 @@ const PedidoEditPage = () => {
         setSelectedProduct(null);
     };
 
-    const handleUpdateCart = (producto, cantidad) => {
+    const handleUpdateCart = (producto, cantidadNum) => {
         let newCart;
         const existingItem = cart.find(item => item.producto.id === producto.id);
-        const numCantidad = parseFloat(String(cantidad).replace(',', '.')) || 0;
 
-        if (numCantidad > 0) {
+        if (cantidadNum > 0) {
             if (existingItem) {
-                newCart = cart.map(item => item.producto.id === producto.id ? { ...item, cantidad: numCantidad } : item);
+                newCart = cart.map(item => item.producto.id === producto.id ? { ...item, cantidad: cantidadNum } : item);
             } else {
-                newCart = [...cart, { producto, cantidad: numCantidad }];
+                newCart = [...cart, { producto, cantidad: cantidadNum }];
             }
         } else {
             newCart = cart.filter(item => item.producto.id !== producto.id);
@@ -87,7 +86,13 @@ const PedidoEditPage = () => {
     
     const handleAcceptModal = () => {
         if (!selectedProduct) return;
-        handleUpdateCart(selectedProduct, modalQuantity);
+        const numCantidad = parseFloat(String(modalQuantity).replace(',', '.'));
+        // Si el campo está vacío o es inválido, no hacemos nada (el usuario puede cancelar)
+        if (isNaN(numCantidad)) {
+            closeModal();
+            return;
+        }
+        handleUpdateCart(selectedProduct, numCantidad);
         closeModal();
     };
 

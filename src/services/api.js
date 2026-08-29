@@ -144,4 +144,24 @@ export const getPedidosStatusFromServer = async (pedidoIds, token) => {
     }
     return data;
 };
-// --- FIN DE NUEVA FUNCIÓN ---
+
+/**
+ * Obtiene el cronograma de zonas de entrega de la semana actual
+ */
+export const getCronogramaZonas = async (token) => {
+    const hoy = new Date();
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    
+    const fmt = d => d.toISOString().split('T')[0];
+    
+    const response = await fetch(
+        `${API_URL}/config/cronograma?startDate=${fmt(lunes)}&endDate=${fmt(domingo)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!response.ok) return []; // Fail silently si no hay cronograma
+    return response.json();
+};
+

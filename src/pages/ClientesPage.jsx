@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-// --- INICIO DE LA MODIFICACIÓN ---
 import { ArrowLeftIcon, PlusIcon, SearchIcon, Spinner, EditIcon, ShoppingCartIcon } from '../components/ui';
 import { usePedidos } from '../context/PedidoContext';
-// --- FIN DE LA MODIFICACIÓN ---
+import FaltantesModal from '../components/FaltantesModal';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -22,12 +21,13 @@ const StatusBadge = ({ status }) => {
 
 const ClientesPage = () => {
     const navigate = useNavigate();
-    // --- INICIO DE LA MODIFICACIÓN ---
     const { openPedidos } = usePedidos();
-    // --- FIN DE LA MODIFICACIÓN ---
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Modal state
+    const [selectedClientForOrder, setSelectedClientForOrder] = useState(null);
 
     useEffect(() => {
         const fetchClientes = async () => {
@@ -42,11 +42,26 @@ const ClientesPage = () => {
             }
         };
         fetchClientes();
-    }, []);
+    }, [selectedClientForOrder]); // Reload if we close modal to show new icons
 
     const filteredClientes = clientes.filter(c =>
         c.nombre_comercio.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleClientClick = (cliente) => {
+        const needsData = !cliente.latitud || !cliente.longitud || !cliente.horario_atencion || !cliente.vendedor_id;
+        if (needsData) {
+            setSelectedClientForOrder(cliente);
+        } else {
+            navigate(`/pedidos/nuevo/${cliente.local_id}`);
+        }
+    };
+
+    const handleModalComplete = () => {
+        const localId = selectedClientForOrder.local_id;
+        setSelectedClientForOrder(null);
+        navigate(`/pedidos/nuevo/${localId}`);
+    };
 
     return (
         <div className="bg-gray-100 min-h-screen">
@@ -73,18 +88,23 @@ const ClientesPage = () => {
                 {!loading && filteredClientes.length > 0 ? (
                     <div className="space-y-3">
                         {filteredClientes.map(cliente => {
-                            // --- INICIO DE LA MODIFICACIÓN ---
                             const tienePedidoAbierto = openPedidos[cliente.local_id] && openPedidos[cliente.local_id].length > 0;
                             return (
                                 <div key={cliente.local_id} className="bg-white p-4 rounded-lg shadow flex justify-between items-center">
-                                    <div className="flex-1 cursor-pointer" onClick={() => navigate(`/pedidos/nuevo/${cliente.local_id}`)}>
+                                    <div className="flex-1 cursor-pointer" onClick={() => handleClientClick(cliente)}>
                                         <div className="flex items-center gap-2">
                                             {tienePedidoAbierto && <ShoppingCartIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />}
                                             <p className="font-bold text-gray-800 truncate">{cliente.nombre_comercio}</p>
                                         </div>
-                                        <p className="text-sm text-gray-600 pl-7">{cliente.direccion || 'Sin dirección'}</p>
-                                        <div className="pl-7 mt-1">
+                                        {cliente.vendedor_nombre && (
+                                            <p className="text-xs text-gray-400 pl-7 mt-0.5">Vendedor: {cliente.vendedor_nombre}</p>
+                                        )}
+                                        <p className="text-sm text-gray-600 pl-7 mt-0.5">{cliente.direccion || 'Sin dirección'}</p>
+                                        <div className="pl-7 mt-1.5 flex items-center gap-2">
                                             <StatusBadge status={cliente.status} />
+                                            {(cliente.latitud && cliente.longitud) && (
+                                                <span className="inline-block bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full">📍 GPS</span>
+                                            )}
                                         </div>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); navigate(`/clientes/editar/${cliente.local_id}`); }} className="p-2 text-gray-500 hover:text-blue-600" title="Editar cliente">
@@ -92,13 +112,19 @@ const ClientesPage = () => {
                                     </button>
                                 </div>
                             );
-                            // --- FIN DE LA MODIFICACIÓN ---
                         })}
                     </div>
                 ) : (
                     !loading && <p className="text-center text-gray-500 mt-8">No se encontraron clientes.</p>
                 )}
             </main>
+            {selectedClientForOrder && (
+                <FaltantesModal 
+                    cliente={selectedClientForOrder} 
+                    onComplete={handleModalComplete} 
+                    onCancel={() => setSelectedClientForOrder(null)} 
+                />
+            )}
         </div>
     );
 };

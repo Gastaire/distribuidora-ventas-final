@@ -5,16 +5,23 @@ import { ArrowLeftIcon, Spinner } from '../components/ui';
 import { createCliente, updateCliente } from '../services/api'; 
 import { useAuth } from '../context/AuthContext';
 
+import LocationPicker from '../components/LocationPicker';
+
 const ClienteFormPage = () => {
     const navigate = useNavigate();
     const { localId } = useParams(); // Obtenemos el ID de la URL si estamos editando
-    const { token } = useAuth();
+    const { token, user } = useAuth();
 
     const [formData, setFormData] = useState({
-        nombre_comercio: '', nombre_contacto: '', direccion: '', telefono: ''
+        nombre_comercio: '', nombre_contacto: '', direccion: '', telefono: '',
+        latitud: null, longitud: null, horario_atencion: '', horario_entrega: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [gpsLoading, setGpsLoading] = useState(false);
+    const [gpsError, setGpsError] = useState('');
+    const [mapVisible, setMapVisible] = useState(false);
+    const [showEntrega, setShowEntrega] = useState(false);
     const isEditing = !!localId;
 
     useEffect(() => {
@@ -36,6 +43,31 @@ const ClienteFormPage = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleGetGPS = () => {
+        if (!navigator.geolocation) {
+            setGpsError('Tu navegador no soporta geolocalización.');
+            return;
+        }
+        setGpsLoading(true);
+        setGpsError('');
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setFormData(prev => ({
+                    ...prev,
+                    latitud: position.coords.latitude,
+                    longitud: position.coords.longitude,
+                }));
+                setMapVisible(true);
+                setGpsLoading(false);
+            },
+            (err) => {
+                setGpsError('No se pudo obtener ubicación. Verificá que el GPS esté habilitado.');
+                setGpsLoading(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.nombre_comercio.trim()) {
@@ -55,7 +87,9 @@ const ClienteFormPage = () => {
                 const newCliente = {
                     ...formData,
                     local_id: `local_${Date.now()}`,
-                    status: 'pending_sync'
+                    status: 'pending_sync',
+                    vendedor_id: user?.id || null,
+                    vendedor_nombre: user?.nombre || null
                 };
                 const createdCliente = await createCliente(newCliente, token);
                 await db.clientes.put({ ...newCliente, id: createdCliente.id, status: 'synced' });
@@ -102,6 +136,83 @@ const ClienteFormPage = () => {
                     <div>
                         <label htmlFor="telefono" className="text-sm font-medium text-gray-700">Teléfono</label>
                         <input id="telefono" type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-2 border rounded-lg mt-1" />
+                    </div>
+
+                    {/* Sección de ubicación */}
+                    <div className="border-t pt-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">📍 Ubicación del cliente</p>
+                        
+                        {formData.latitud && formData.longitud ? (
+                            <div className="mb-2 bg-green-50 border border-green-200 rounded-lg p-2 flex items-center justify-between">
+                                <span className="text-xs text-green-700 font-medium">
+                                    ✓ Ubicación guardada ({formData.latitud.toFixed(5)}, {formData.longitud.toFixed(5)})
+                                </span>
+                                <button type="button" onClick={() => setMapVisible(v => !v)}
+                                    className="text-xs text-blue-600 font-medium">
+                                    {mapVisible ? 'Ocultar mapa' : 'Ajustar'}
+                                </button>
+                            </div>
+                        ) : null}
+                        
+                        {mapVisible && (
+                            <div className="mb-3">
+                                <LocationPicker
+                                    lat={formData.latitud}
+                                    lng={formData.longitud}
+                                    onChange={(lat, lng) => setFormData(prev => ({ ...prev, latitud: lat, longitud: lng }))}
+                                />
+                            </div>
+                        )}
+                        
+                        <button
+                            type="button"
+                            onClick={handleGetGPS}
+                            disabled={gpsLoading}
+                            className="w-full border-2 border-blue-300 text-blue-600 font-semibold py-2 rounded-lg flex items-center justify-center gap-2 active:bg-blue-50"
+                        >
+                            {gpsLoading ? <Spinner /> : '📍'}
+                            {gpsLoading ? 'Obteniendo...' : (formData.latitud ? 'Actualizar mi ubicación actual' : 'Usar mi ubicación actual (GPS)')}
+                        </button>
+                        {gpsError && <p className="text-red-500 text-xs mt-1">{gpsError}</p>}
+                    </div>
+
+                    {/* Horarios */}
+                    <div className="border-t pt-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">🕐 Horarios del comercio</p>
+                        <div>
+                            <label className="text-xs font-medium text-gray-600">Horario de atención</label>
+                            <input
+                                type="text"
+                                name="horario_atencion"
+                                value={formData.horario_atencion}
+                                onChange={handleChange}
+                                placeholder="Ej: Lun-Vie 09:00-18:00"
+                                className="w-full p-2 border rounded-lg mt-1 text-sm"
+                            />
+                        </div>
+                        {!showEntrega && (
+                            <button 
+                                type="button" 
+                                onClick={() => setShowEntrega(true)}
+                                className="text-blue-600 text-sm font-medium mt-2"
+                            >
+                                + Agregar horario especial de recepción de pedidos
+                            </button>
+                        )}
+                        {showEntrega && (
+                            <div className="mt-3">
+                                <label className="text-xs font-medium text-gray-600">Horario de recepción de pedidos</label>
+                                <p className="text-xs text-gray-400">Solo si difiere del horario de atención</p>
+                                <input
+                                    type="text"
+                                    name="horario_entrega"
+                                    value={formData.horario_entrega}
+                                    onChange={handleChange}
+                                    placeholder="Ej: Lun-Vie 10:00-16:00"
+                                    className="w-full p-2 border rounded-lg mt-1 text-sm"
+                                />
+                            </div>
+                        )}
                     </div>
                     {error && <p className="text-red-500 text-sm">{error}</p>}
                     <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg mt-4 flex items-center justify-center disabled:bg-blue-400">
