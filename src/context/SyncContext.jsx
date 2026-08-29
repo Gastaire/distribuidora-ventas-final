@@ -48,36 +48,7 @@ export const SyncProvider = ({ children }) => {
     };
 
     // --- INICIO DE LA MODIFICACIÓN: Sincronización automática ---
-    useEffect(() => {
-        let intervalId = null;
-
-        const TWELVE_HOURS_IN_MS = 12 * 60 * 60 * 1000;
-
-        // Si hay un token (usuario logueado), configuramos la sincronización automática.
-        if (token) {
-            console.log('[Sync Automático] Configurando intervalo de 12 horas.');
-            
-            // Ejecutamos una vez al inicio (opcional, pero bueno para mantener todo fresco)
-            runSync(true);
-
-            intervalId = setInterval(() => {
-                // Solo se ejecuta si hay conexión
-                if (navigator.onLine) {
-                    runSync(true); // 'true' indica que es una ejecución automática
-                } else {
-                    console.log('[Sync Automático] Omitiendo ejecución por falta de conexión.');
-                }
-            }, TWELVE_HOURS_IN_MS);
-        }
-
-        // Función de limpieza: se ejecuta si el usuario cierra sesión o el componente se desmonta.
-        return () => {
-            if (intervalId) {
-                console.log('[Sync Automático] Limpiando intervalo.');
-                clearInterval(intervalId);
-            }
-        };
-    }, [token]); // Este efecto se volverá a ejecutar cada vez que el token cambie (login/logout).
+    // (Se eliminó el intervalo de 12 horas. Ahora se controla desde HomePage.jsx)
     // --- FIN DE LA MODIFICACIÓN ---
 
     const fetchPedidosHistoricos = async () => {

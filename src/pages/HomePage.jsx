@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSync } from '../context/SyncContext';
 import { db } from '../services/db';
 import { UsersIcon, ShoppingCartIcon, SettingsIcon, CloudOffIcon } from '../components/ui';
 import { getCronogramaZonas } from '../services/api';
@@ -16,6 +17,7 @@ const ActionButton = ({ icon, text, onClick, badge, badgeColor }) => (
 
 const HomePage = () => {
     const { user, token } = useAuth();
+    const { runSync, lastSync } = useSync();
     const navigate = useNavigate();
     const [stats, setStats] = useState({ pedidosHoy: 0, totalVendidoHoy: 0, clientesVisitadosHoy: 0, pendientesSync: 0 });
     const [offlineMode, setOfflineMode] = useState(!navigator.onLine);
@@ -23,26 +25,47 @@ const HomePage = () => {
     const [showFullWeek, setShowFullWeek] = useState(false);
 
     useEffect(() => {
+        // Auto-sync al entrar al Dashboard si pasaron más de 30 mins
+        if (token && navigator.onLine) {
+            const checkAndSync = () => {
+                const now = new Date().getTime();
+                const last = lastSync ? new Date(lastSync).getTime() : 0;
+                const diffMins = (now - last) / (1000 * 60);
+                if (diffMins > 30) {
+                    console.log(`[Dashboard Auto-Sync] Pasaron ${Math.round(diffMins)} mins. Sincronizando...`);
+                    runSync(true);
+                }
+            };
+            
+            checkAndSync();
+            // Ejecutar cada 30 mins mientras esté en el dashboard
+            const syncInterval = setInterval(checkAndSync, 30 * 60 * 1000);
+            return () => clearInterval(syncInterval);
+        }
+    }, [token, navigator.onLine, lastSync]);
+
+    useEffect(() => {
         const updateStats = async () => {
             try {
-                const hoy = new Date().toDateString();
-                const pedidosDeHoy = await db.pedidos.filter(p => new Date(p.fecha).toDateString() === hoy).toArray();
+                const hoy = new Date().toISOString().split('T')[0];
+                const pedidos = await db.pedidos.where('fecha').equals(hoy).toArray();
                 
-                const totalVendido = pedidosDeHoy.reduce((total, pedido) => {
-                    return total + (pedido.items || []).reduce((itemTotal, item) => itemTotal + (item.precio_congelado || 0) * item.cantidad, 0);
+                const totalVendido = pedidos.reduce((acc, p) => {
+                    return acc + (p.items || []).reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
                 }, 0);
 
-                const clientesVisitados = new Set(pedidosDeHoy.map(p => p.cliente_local_id || p.cliente_id)).size;
-                const pendientes = await db.pedidos.where('status').notEqual('synced').count();
+                const clientesUnicos = new Set(pedidos.map(p => p.cliente_id || p.cliente_local_id)).size;
+                const pendientes = await db.pedidos.where('status').equals('pending_sync').count();
+                const clientesPendientes = await db.clientes.where('status').equals('pending_sync').count();
 
                 setStats({
-                    pedidosHoy: pedidosDeHoy.length,
+                    pedidosHoy: pedidos.length,
                     totalVendidoHoy: totalVendido,
-                    clientesVisitadosHoy: clientesVisitados,
-                    pendientesSync: pendientes
+                    clientesVisitadosHoy: clientesUnicos,
+                    pendientesSync: pendientes + clientesPendientes
                 });
             } catch (error) {
-                console.error('Error calculando estadísticas:', error);
+                console.error("Error al actualizar estadísticas:", error);
             }
         };
 

@@ -6,6 +6,7 @@ import { createCliente, updateCliente } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 import LocationPicker from '../components/LocationPicker';
+import HorariosPicker from '../components/HorariosPicker';
 
 const ClienteFormPage = () => {
     const navigate = useNavigate();
@@ -179,39 +180,30 @@ const ClienteFormPage = () => {
                     {/* Horarios */}
                     <div className="border-t pt-4">
                         <p className="text-sm font-semibold text-gray-700 mb-2">🕐 Horarios del comercio</p>
-                        <div>
-                            <label className="text-xs font-medium text-gray-600">Horario de atención</label>
-                            <input
-                                type="text"
-                                name="horario_atencion"
-                                value={formData.horario_atencion}
-                                onChange={handleChange}
-                                placeholder="Ej: Lun-Vie 09:00-18:00"
-                                className="w-full p-2 border rounded-lg mt-1 text-sm"
-                            />
-                        </div>
+                        
+                        <HorariosPicker 
+                            label="Horario de atención" 
+                            hint="Seleccioná los días y el rango de horas."
+                            value={formData.horario_atencion}
+                            onChange={(val) => setFormData(prev => ({ ...prev, horario_atencion: val }))}
+                        />
+
                         {!showEntrega && (
                             <button 
                                 type="button" 
                                 onClick={() => setShowEntrega(true)}
-                                className="text-blue-600 text-sm font-medium mt-2"
+                                className="text-blue-600 text-sm font-medium mt-2 mb-4 block"
                             >
                                 + Agregar horario especial de recepción de pedidos
                             </button>
                         )}
                         {showEntrega && (
-                            <div className="mt-3">
-                                <label className="text-xs font-medium text-gray-600">Horario de recepción de pedidos</label>
-                                <p className="text-xs text-gray-400">Solo si difiere del horario de atención</p>
-                                <input
-                                    type="text"
-                                    name="horario_entrega"
-                                    value={formData.horario_entrega}
-                                    onChange={handleChange}
-                                    placeholder="Ej: Lun-Vie 10:00-16:00"
-                                    className="w-full p-2 border rounded-lg mt-1 text-sm"
-                                />
-                            </div>
+                            <HorariosPicker 
+                                label="Horario de recepción de pedidos" 
+                                hint="Solo si difiere del horario de atención."
+                                value={formData.horario_entrega}
+                                onChange={(val) => setFormData(prev => ({ ...prev, horario_entrega: val }))}
+                            />
                         )}
                     </div>
                     {error && <p className="text-red-500 text-sm">{error}</p>}

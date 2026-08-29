@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import LocationPicker from './LocationPicker';
+import HorariosPicker from './HorariosPicker';
 import { Spinner } from './ui';
 import { updateCliente } from '../services/api';
 
@@ -130,17 +131,15 @@ const FaltantesModal = ({ cliente, onComplete, onCancel }) => {
 
                 {currentStep === 'horarios' && (
                     <div className="space-y-4">
-                        <p className="font-semibold text-gray-700">🕐 Horarios del comercio</p>
-                        <div>
-                            <label className="text-sm font-medium text-gray-600">Horario de atención</label>
-                            <input
-                                type="text"
-                                value={formData.horario_atencion}
-                                onChange={(e) => setFormData(prev => ({ ...prev, horario_atencion: e.target.value }))}
-                                placeholder="Ej: Lun-Vie 09:00-18:00"
-                                className="w-full p-2 border rounded-lg mt-1"
-                            />
-                        </div>
+                        <p className="font-semibold text-gray-700 mb-2">🕐 Horarios del comercio</p>
+                        
+                        <HorariosPicker 
+                            label="Horario de atención" 
+                            hint="Seleccioná los días y el rango de horas."
+                            value={formData.horario_atencion}
+                            onChange={(val) => setFormData(prev => ({ ...prev, horario_atencion: val }))}
+                        />
+
                         {!showEntrega && (
                             <button 
                                 type="button" 
@@ -151,17 +150,12 @@ const FaltantesModal = ({ cliente, onComplete, onCancel }) => {
                             </button>
                         )}
                         {showEntrega && (
-                            <div className="mt-3 bg-gray-50 p-3 rounded-lg border">
-                                <label className="text-sm font-medium text-gray-600">Horario de recepción</label>
-                                <p className="text-xs text-gray-400 mb-2">Solo si es distinto al de atención</p>
-                                <input
-                                    type="text"
-                                    value={formData.horario_entrega}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, horario_entrega: e.target.value }))}
-                                    placeholder="Ej: Lun-Vie 10:00-16:00"
-                                    className="w-full p-2 border rounded-lg"
-                                />
-                            </div>
+                            <HorariosPicker 
+                                label="Horario de recepción" 
+                                hint="Solo si es distinto al de atención."
+                                value={formData.horario_entrega}
+                                onChange={(val) => setFormData(prev => ({ ...prev, horario_entrega: val }))}
+                            />
                         )}
                     </div>
                 )}

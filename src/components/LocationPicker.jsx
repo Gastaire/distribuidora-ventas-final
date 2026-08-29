@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -25,9 +25,40 @@ const MapClickHandler = ({ onLocationSelect }) => {
 const LocationPicker = ({ lat, lng, onChange }) => {
     // Por defecto centro de Tucumán si no hay coordenadas
     const center = (lat && lng) ? [lat, lng] : [-26.8241, -65.2226]; 
+    const [address, setAddress] = useState('');
+    const [loadingAddress, setLoadingAddress] = useState(false);
+
+    useEffect(() => {
+        if (!lat || !lng) {
+            setAddress('');
+            return;
+        }
+        
+        const fetchAddress = async () => {
+            setLoadingAddress(true);
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                if (data && data.display_name) {
+                    // Tomamos una porción más corta de la dirección
+                    const parts = data.display_name.split(',').slice(0, 3).join(', ');
+                    setAddress(parts);
+                }
+            } catch (e) {
+                console.error("Error al obtener dirección", e);
+                setAddress('Dirección no disponible');
+            } finally {
+                setLoadingAddress(false);
+            }
+        };
+
+        // Debounce simple para no saturar la API
+        const timeoutId = setTimeout(fetchAddress, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [lat, lng]);
 
     return (
-        <div className="rounded-xl overflow-hidden border-2 border-blue-400 bg-white" style={{ height: '280px' }}>
+        <div className="rounded-xl overflow-hidden border-2 border-blue-400 bg-white" style={{ height: 'auto' }}>
             <MapContainer center={center} zoom={13} style={{ height: '250px', width: '100%' }}>
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -36,7 +67,14 @@ const LocationPicker = ({ lat, lng, onChange }) => {
                 <MapClickHandler onLocationSelect={(lat, lng) => onChange(lat, lng)} />
                 {lat && lng && <Marker position={[lat, lng]} />}
             </MapContainer>
-            <p className="text-xs text-center text-gray-500 mt-1 py-1">Tocá el mapa para mover el marcador</p>
+            <div className="text-center p-2">
+                <p className="text-xs text-gray-500 font-medium">Tocá el mapa para mover el marcador</p>
+                {(lat && lng) && (
+                    <div className="mt-1 flex items-center justify-center text-xs text-blue-700 bg-blue-50 py-1 px-2 rounded">
+                        {loadingAddress ? 'Buscando dirección...' : (address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`)}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
