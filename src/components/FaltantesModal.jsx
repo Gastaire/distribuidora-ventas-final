@@ -166,19 +166,58 @@ const FaltantesModal = ({ cliente, onComplete, onCancel }) => {
                         <p className="text-sm text-gray-500">No hay un vendedor asignado a {cliente.nombre_comercio}.</p>
                         <div className="flex flex-col gap-3 mt-6">
                             <button 
-                                onClick={() => {
-                                    setFormData(prev => ({ ...prev, vendedor_id: user.id, vendedor_nombre: user.nombre }));
-                                    // Hacky but simple logic: when clicked, we simulate "next" in next tick
-                                    setTimeout(() => handleNext(), 50);
+                                onClick={async () => {
+                                    const updated = { ...formData, vendedor_id: user.id, vendedor_nombre: user.nombre };
+                                    setFormData(updated);
+                                    
+                                    // Guardar cambios directamente
+                                    setLoading(true);
+                                    try {
+                                        const updatedCliente = { ...cliente, ...updated };
+                                        if (updatedCliente.id) {
+                                            await updateCliente(updatedCliente, token);
+                                            await db.clientes.update(cliente.local_id, { ...updatedCliente, status: 'synced' });
+                                        } else {
+                                            await db.clientes.update(cliente.local_id, { ...updatedCliente, status: 'pending_sync' });
+                                        }
+                                        onComplete();
+                                    } catch (err) {
+                                        console.error(err);
+                                        const updatedCliente = { ...cliente, ...updated, status: 'pending_sync' };
+                                        await db.clientes.update(cliente.local_id, updatedCliente);
+                                        onComplete();
+                                    } finally {
+                                        setLoading(false);
+                                    }
                                 }}
                                 className="bg-blue-600 text-white font-bold py-3 rounded-lg"
                             >
                                 Es mío ({user.nombre})
                             </button>
                             <button 
-                                onClick={() => {
-                                    setFormData(prev => ({ ...prev, vendedor_id: null, vendedor_nombre: 'Otro / Sin Asignar' }));
-                                    setTimeout(() => handleNext(), 50);
+                                onClick={async () => {
+                                    const updated = { ...formData, vendedor_id: null, vendedor_nombre: 'Otro / Sin Asignar' };
+                                    setFormData(updated);
+                                    
+                                    // Guardar cambios directamente
+                                    setLoading(true);
+                                    try {
+                                        const updatedCliente = { ...cliente, ...updated };
+                                        if (updatedCliente.id) {
+                                            await updateCliente(updatedCliente, token);
+                                            await db.clientes.update(cliente.local_id, { ...updatedCliente, status: 'synced' });
+                                        } else {
+                                            await db.clientes.update(cliente.local_id, { ...updatedCliente, status: 'pending_sync' });
+                                        }
+                                        onComplete();
+                                    } catch (err) {
+                                        console.error(err);
+                                        const updatedCliente = { ...cliente, ...updated, status: 'pending_sync' };
+                                        await db.clientes.update(cliente.local_id, updatedCliente);
+                                        onComplete();
+                                    } finally {
+                                        setLoading(false);
+                                    }
                                 }}
                                 className="bg-gray-200 text-gray-800 font-bold py-3 rounded-lg"
                             >
