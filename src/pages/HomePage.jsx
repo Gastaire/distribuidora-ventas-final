@@ -107,8 +107,9 @@ const HomePage = () => {
     const getZonaParaDia = (dow) => {
         const entrada = cronograma.find(e => {
             if (!e.fecha) return false;
-            const d = new Date(e.fecha + 'T00:00:00');
-            return d.getDay() === dow;
+            const [y, m, d] = e.fecha.split('-');
+            const dateObj = new Date(y, m - 1, d);
+            return dateObj.getDay() === dow;
         });
         return entrada ? entrada.zonas : null;
     };
@@ -166,15 +167,15 @@ const HomePage = () => {
                         
                         {/* Hoy y Mañana siempre visibles */}
                         <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-white bg-opacity-20 rounded-lg p-3">
-                                <p className="text-xs opacity-75">Hoy ({DIAS[hoyDow]})</p>
-                                <p className="font-bold text-sm mt-0.5">
+                            <div className="bg-white/20 rounded-lg p-3">
+                                <p className="text-xs text-blue-100">Hoy ({DIAS[hoyDow]})</p>
+                                <p className="font-bold text-sm mt-0.5 text-white">
                                     {getZonaParaDia(hoyDow) || '—'}
                                 </p>
                             </div>
-                            <div className="bg-white bg-opacity-10 rounded-lg p-3">
-                                <p className="text-xs opacity-75">Mañana ({DIAS[manyanaDow]})</p>
-                                <p className="font-bold text-sm mt-0.5">
+                            <div className="bg-white/10 rounded-lg p-3">
+                                <p className="text-xs text-blue-100">Mañana ({DIAS[manyanaDow]})</p>
+                                <p className="font-bold text-sm mt-0.5 text-white">
                                     {getZonaParaDia(manyanaDow) || '—'}
                                 </p>
                             </div>

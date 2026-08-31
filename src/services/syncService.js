@@ -2,6 +2,7 @@ import { db } from './db';
 // --- INICIO DE MODIFICACIÓN ---
 import { 
     createCliente, 
+    updateCliente,
     createPedido, 
     updatePedido, 
     getPedidosStatusFromServer 
