@@ -110,7 +110,7 @@ const HomePage = () => {
             const d = new Date(e.fecha + 'T00:00:00');
             return d.getDay() === dow;
         });
-        return entrada ? entrada.zona_nombre : null;
+        return entrada ? entrada.zonas : null;
     };
 
     return (

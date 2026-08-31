@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -22,9 +22,19 @@ const MapClickHandler = ({ onLocationSelect }) => {
     return null;
 };
 
+const MapFlyTo = ({ lat, lng }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (lat && lng) {
+            map.flyTo([lat, lng], 16);
+        }
+    }, [lat, lng, map]);
+    return null;
+};
+
 const LocationPicker = ({ lat, lng, onChange }) => {
-    // Por defecto centro de Tucumán si no hay coordenadas
-    const center = (lat && lng) ? [lat, lng] : [-26.8241, -65.2226]; 
+    // Por defecto centro de Lules si no hay coordenadas
+    const center = (lat && lng) ? [lat, lng] : [-26.9248, -65.3421]; 
     const [address, setAddress] = useState('');
     const [loadingAddress, setLoadingAddress] = useState(false);
 
@@ -65,6 +75,7 @@ const LocationPicker = ({ lat, lng, onChange }) => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <MapClickHandler onLocationSelect={(lat, lng) => onChange(lat, lng)} />
+                <MapFlyTo lat={lat} lng={lng} />
                 {lat && lng && <Marker position={[lat, lng]} />}
             </MapContainer>
             <div className="text-center p-2">

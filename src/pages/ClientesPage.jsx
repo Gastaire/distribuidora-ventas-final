@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { ArrowLeftIcon, PlusIcon, SearchIcon, Spinner, EditIcon, ShoppingCartIcon } from '../components/ui';
 import { usePedidos } from '../context/PedidoContext';
+import { useAuth } from '../context/AuthContext';
 import FaltantesModal from '../components/FaltantesModal';
 
 const StatusBadge = ({ status }) => {
@@ -21,6 +22,7 @@ const StatusBadge = ({ status }) => {
 
 const ClientesPage = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { openPedidos } = usePedidos();
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -49,6 +51,11 @@ const ClientesPage = () => {
     );
 
     const handleClientClick = (cliente) => {
+        if (cliente.vendedor_id && user && cliente.vendedor_id != user.id) {
+            const confirmed = window.confirm(`ATENCIÓN: Este cliente pertenece al vendedor ${cliente.vendedor_nombre || 'otro vendedor'}.\n\n¿Estás seguro que querés tomarle un pedido?`);
+            if (!confirmed) return;
+        }
+
         const needsData = !cliente.latitud || !cliente.longitud || !cliente.horario_atencion || !cliente.vendedor_id;
         if (needsData) {
             setSelectedClientForOrder(cliente);
