@@ -47,11 +47,17 @@ const HomePage = () => {
     useEffect(() => {
         const updateStats = async () => {
             try {
-                const hoy = new Date().toISOString().split('T')[0];
-                const pedidos = await db.pedidos.where('fecha').equals(hoy).toArray();
+                const hoyLocalDate = new Date().toLocaleDateString('sv'); // Formato 'YYYY-MM-DD' en zona horaria local
+                const allPedidos = await db.pedidos.toArray();
+                
+                const pedidos = allPedidos.filter(p => {
+                    if (!p.fecha) return false;
+                    const dateStr = new Date(p.fecha).toLocaleDateString('sv');
+                    return dateStr === hoyLocalDate;
+                });
                 
                 const totalVendido = pedidos.reduce((acc, p) => {
-                    return acc + (p.items || []).reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
+                    return acc + (p.items || []).reduce((sum, item) => sum + (item.cantidad * (item.precio || item.precio_congelado || 0)), 0);
                 }, 0);
 
                 const clientesUnicos = new Set(pedidos.map(p => p.cliente_id || p.cliente_local_id)).size;
