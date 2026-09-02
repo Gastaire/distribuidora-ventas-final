@@ -155,7 +155,12 @@ export const getCronogramaZonas = async (token) => {
     const domingo = new Date(lunes);
     domingo.setDate(lunes.getDate() + 6);
     
-    const fmt = d => d.toISOString().split('T')[0];
+    const fmt = d => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    };
     
     const response = await fetch(
         `${API_URL}/config/cronograma?startDate=${fmt(lunes)}&endDate=${fmt(domingo)}`,
@@ -165,3 +170,41 @@ export const getCronogramaZonas = async (token) => {
     return response.json();
 };
 
+// --- Borradores (Cloud Sync) ---
+
+export const saveBorradorToServer = async (clienteLocalId, cart, notes, token) => {
+    const response = await fetch(`${API_URL}/borradores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+            cliente_local_id: clienteLocalId,
+            cart: { items: cart, notes: notes || '' },
+            last_modified: new Date().toISOString()
+        })
+    });
+    if (!response.ok) {
+        throw new Error('Error al guardar borrador en el servidor.');
+    }
+    return response.json();
+};
+
+export const getBorradoresFromServer = async (token) => {
+    const response = await fetch(`${API_URL}/borradores`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+        throw new Error('Error al obtener borradores del servidor.');
+    }
+    return response.json();
+};
+
+export const deleteBorradorFromServer = async (clienteLocalId, token) => {
+    const response = await fetch(`${API_URL}/borradores/${encodeURIComponent(clienteLocalId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+        throw new Error('Error al eliminar borrador del servidor.');
+    }
+    return response.json();
+};

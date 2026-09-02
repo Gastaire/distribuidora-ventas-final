@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/db';
-import { createPedido as apiCreatePedido, updatePedido as apiUpdatePedido } from '../services/api';
+import { createPedido as apiCreatePedido, updatePedido as apiUpdatePedido, saveBorradorToServer, getBorradoresFromServer, deleteBorradorFromServer } from '../services/api';
 
 const PedidoContext = createContext(null);
 
@@ -13,27 +13,67 @@ export const PedidoProvider = ({ children }) => {
 
     useEffect(() => {
         const loadBorradores = async () => {
-            const borradoresArray = await db.borradores.toArray();
-            const borradoresMap = borradoresArray.reduce((acc, b) => {
-                acc[b.cliente_local_id] = b.cart;
-                return acc;
-            }, {});
-            const notesMap = borradoresArray.reduce((acc, b) => {
-                acc[b.cliente_local_id] = b.notes || ''; 
-                return acc;
-            }, {});
+            // Load local drafts first
+            const borradoresLocales = await db.borradores.toArray();
+            const localMap = new Map(borradoresLocales.map(b => [b.cliente_local_id, b]));
+
+            // Try to merge with server drafts if online
+            if (navigator.onLine && token) {
+                try {
+                    const serverBorradores = await getBorradoresFromServer(token);
+                    for (const sb of serverBorradores) {
+                        const local = localMap.get(sb.cliente_local_id);
+                        const serverCart = sb.cart;
+                        // Parse server format: cart can be { items, notes } or raw array
+                        const serverItems = serverCart?.items || (Array.isArray(serverCart) ? serverCart : []);
+                        const serverNotes = serverCart?.notes || '';
+                        const serverModified = sb.last_modified || '1970-01-01';
+
+                        if (!local || (local.last_modified && serverModified > local.last_modified)) {
+                            // Server is newer or local doesn't exist — use server version
+                            const merged = { cliente_local_id: sb.cliente_local_id, cart: serverItems, notes: serverNotes, last_modified: serverModified };
+                            await db.borradores.put(merged);
+                            localMap.set(sb.cliente_local_id, merged);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch server borradores:', err.message);
+                }
+            }
+
+            // Build state from merged data
+            const allBorradores = Array.from(localMap.values());
+            const borradoresMap = {};
+            const notesMap = {};
+            for (const b of allBorradores) {
+                borradoresMap[b.cliente_local_id] = b.cart;
+                notesMap[b.cliente_local_id] = b.notes || '';
+            }
             setOpenPedidos(borradoresMap);
             setDraftNotes(notesMap);
         };
         loadBorradores();
-    }, []);
+    }, [token]);
+
+    const syncTimers = React.useRef({});
 
     const saveBorradorToDB = async (clienteLocalId, cart, notes) => {
         if (!clienteLocalId) return;
         try {
-            await db.borradores.put({ cliente_local_id: clienteLocalId, cart, notes });
+            await db.borradores.put({ cliente_local_id: clienteLocalId, cart, notes, last_modified: new Date().toISOString() });
         } catch (error) {
             console.error("Error al guardar borrador en Dexie:", error);
+        }
+        // Sync debounced to server
+        if (navigator.onLine && token) {
+            if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
+            syncTimers.current[clienteLocalId] = setTimeout(async () => {
+                try {
+                    await saveBorradorToServer(clienteLocalId, cart, notes, token);
+                } catch (err) {
+                    console.warn('Borrador cloud sync failed, will retry on next sync:', err.message);
+                }
+            }, 3000);
         }
     };
 
@@ -62,7 +102,14 @@ export const PedidoProvider = ({ children }) => {
             const { [clienteLocalId]: _, ...rest } = prev;
             return rest;
         });
+        if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
         db.borradores.delete(clienteLocalId);
+        // Delete from server too
+        if (navigator.onLine && token) {
+            deleteBorradorFromServer(clienteLocalId, token).catch(err =>
+                console.warn('Could not delete server borrador:', err.message)
+            );
+        }
         setEditingPedido(null);
     };
 

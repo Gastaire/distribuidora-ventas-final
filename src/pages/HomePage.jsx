@@ -113,8 +113,9 @@ const HomePage = () => {
     const getZonaParaDia = (dow) => {
         const entrada = cronograma.find(e => {
             if (!e.fecha) return false;
-            const [y, m, d] = e.fecha.split('-');
-            const dateObj = new Date(y, m - 1, d);
+            const datePart = e.fecha.split('T')[0];
+            const [y, m, d] = datePart.split('-');
+            const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
             return dateObj.getDay() === dow;
         });
         return entrada ? entrada.zonas : null;

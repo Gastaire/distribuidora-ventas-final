@@ -1,13 +1,13 @@
 import { db } from './db';
-// --- INICIO DE MODIFICACIÓN ---
 import { 
     createCliente, 
     updateCliente,
     createPedido, 
     updatePedido, 
-    getPedidosStatusFromServer 
+    getPedidosStatusFromServer,
+    saveBorradorToServer,
+    getBorradoresFromServer
 } from './api';
-// --- FIN DE MODIFICACIÓN ---
 
 const API_URL = 'https://distriapi.distrimaxi.site/api';
 
@@ -162,6 +162,24 @@ async function syncPedidosStatus(token) {
 }
 // --- FIN DE NUEVA FUNCIÓN ---
 
+async function syncBorradores(token) {
+    let uploaded = 0;
+    try {
+        const borradores = await db.borradores.toArray();
+        for (const b of borradores) {
+            try {
+                await saveBorradorToServer(b.cliente_local_id, b.cart, b.notes || '', token);
+                uploaded++;
+            } catch (err) {
+                console.warn(`Failed to sync borrador ${b.cliente_local_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('Error syncing borradores:', err);
+    }
+    return uploaded;
+}
+
 export const runSync = async (token) => {
     if (!navigator.onLine || !token) {
         throw new Error('Sin conexión o sin sesión de usuario.');
@@ -171,23 +189,25 @@ export const runSync = async (token) => {
         clientes: { created: 0, failed: 0, updated: 0 },
         pedidos: { created: 0, failed: 0, updated: 0 },
         downloaded: false,
-        statusesUpdated: 0, // <-- Nuevo campo para el resumen
+        statusesUpdated: 0,
+        borradoresUploaded: 0,
     };
 
     // 1. Descargar datos maestros actualizados del servidor
     await downloadServerData(token);
     summary.downloaded = true;
 
-    // --- INICIO DE MODIFICACIÓN: Añadir sincronización de estados ---
     // 2. Sincronizar estados de pedidos existentes (antes de subir nuevos)
     summary.statusesUpdated = await syncPedidosStatus(token);
-    // --- FIN DE MODIFICACIÓN ---
 
     // 3. Subir Clientes nuevos o modificados
     summary.clientes = await syncClientes(token);
     
     // 4. Subir Pedidos nuevos o modificados
     summary.pedidos = await syncPedidos(token);
+
+    // 5. Sincronizar borradores con el servidor
+    summary.borradoresUploaded = await syncBorradores(token);
 
     return summary;
 };

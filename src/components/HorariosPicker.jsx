@@ -10,15 +10,29 @@ const parseHorarios = (jsonString) => {
     if (!jsonString) return {};
     try {
         const obj = JSON.parse(jsonString);
+        // Formato admin: array de { dias: [int], inicio, fin }
+        if (Array.isArray(obj)) {
+            const DIA_MAP = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
+            const migrated = {};
+            for (const turno of obj) {
+                if (!turno.dias) continue;
+                for (const diaId of turno.dias) {
+                    const diaKey = DIA_MAP[diaId];
+                    if (!diaKey) continue;
+                    if (!migrated[diaKey]) migrated[diaKey] = [];
+                    migrated[diaKey].push({ desde: turno.inicio || '', hasta: turno.fin || '' });
+                }
+            }
+            return migrated;
+        }
+        // Formato ventas: { "Lun": [...], ... }
         const migrated = {};
         for (const dia in obj) {
             const val = obj[dia];
             if (typeof val === 'string') {
-                // Formato viejo: "09:00-18:00"
                 const parts = val.split('-');
                 migrated[dia] = [{ desde: parts[0] || '', hasta: parts[1] || '' }];
             } else if (Array.isArray(val)) {
-                // Formato nuevo: [{ desde: '09:00', hasta: '13:00' }]
                 migrated[dia] = val;
             }
         }
