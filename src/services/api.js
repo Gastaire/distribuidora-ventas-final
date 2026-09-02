@@ -163,7 +163,7 @@ export const getCronogramaZonas = async (token) => {
     };
     
     const response = await fetch(
-        `${API_URL}/config/cronograma?startDate=${fmt(lunes)}&endDate=${fmt(domingo)}`,
+        `${API_URL}/cronograma?startDate=${fmt(lunes)}&endDate=${fmt(domingo)}`,
         { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!response.ok) return []; // Fail silently si no hay cronograma
