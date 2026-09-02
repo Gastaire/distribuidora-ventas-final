@@ -56,6 +56,26 @@ export const PedidoProvider = ({ children }) => {
     }, [token]);
 
     const syncTimers = React.useRef({});
+    const pendingSyncs = React.useRef({}); // Guarda la data más reciente para cada cliente
+
+    // Listener para cuando el usuario cierra la pestaña o cambia de app en el celular
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && navigator.onLine && token) {
+                // Forzar guardado sincrónico (dentro de lo posible) de todo lo pendiente
+                Object.keys(pendingSyncs.current).forEach(clienteLocalId => {
+                    const data = pendingSyncs.current[clienteLocalId];
+                    if (data) {
+                        saveBorradorToServer(clienteLocalId, data.cart, data.notes, token).catch(() => {});
+                        delete pendingSyncs.current[clienteLocalId];
+                        if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
+                    }
+                });
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [token]);
 
     const saveBorradorToDB = async (clienteLocalId, cart, notes) => {
         if (!clienteLocalId) return;
@@ -64,16 +84,21 @@ export const PedidoProvider = ({ children }) => {
         } catch (error) {
             console.error("Error al guardar borrador en Dexie:", error);
         }
-        // Sync debounced to server
+        
+        // Sync debounced to server (1 second for faster reaction)
         if (navigator.onLine && token) {
+            pendingSyncs.current[clienteLocalId] = { cart, notes }; // Guardar estado pendiente
             if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
             syncTimers.current[clienteLocalId] = setTimeout(async () => {
+                const data = pendingSyncs.current[clienteLocalId];
+                if (!data) return;
                 try {
-                    await saveBorradorToServer(clienteLocalId, cart, notes, token);
+                    await saveBorradorToServer(clienteLocalId, data.cart, data.notes, token);
+                    delete pendingSyncs.current[clienteLocalId]; // Limpiar pendiente al terminar
                 } catch (err) {
                     console.warn('Borrador cloud sync failed, will retry on next sync:', err.message);
                 }
-            }, 3000);
+            }, 1000);
         }
     };
 
@@ -103,6 +128,7 @@ export const PedidoProvider = ({ children }) => {
             return rest;
         });
         if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
+        delete pendingSyncs.current[clienteLocalId];
         db.borradores.delete(clienteLocalId);
         // Delete from server too
         if (navigator.onLine && token) {
