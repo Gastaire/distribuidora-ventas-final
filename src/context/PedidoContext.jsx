@@ -29,7 +29,7 @@ export const PedidoProvider = ({ children }) => {
                         const serverNotes = serverCart?.notes || '';
                         const serverModified = sb.last_modified || '1970-01-01';
 
-                        if (!local || (local.last_modified && serverModified > local.last_modified)) {
+                        if (!local || serverModified > (local.last_modified || '1970-01-01')) {
                             // Server is newer or local doesn't exist — use server version
                             const merged = { cliente_local_id: sb.cliente_local_id, cart: serverItems, notes: serverNotes, last_modified: serverModified };
                             await db.borradores.put(merged);
@@ -79,26 +79,30 @@ export const PedidoProvider = ({ children }) => {
 
     const saveBorradorToDB = async (clienteLocalId, cart, notes) => {
         if (!clienteLocalId) return;
+        const isFirstItem = !openPedidos[clienteLocalId] || (openPedidos[clienteLocalId]?.length === 0 && cart?.length > 0);
         try {
             await db.borradores.put({ cliente_local_id: clienteLocalId, cart, notes, last_modified: new Date().toISOString() });
         } catch (error) {
             console.error("Error al guardar borrador en Dexie:", error);
         }
         
-        // Sync debounced to server (1 second for faster reaction)
         if (navigator.onLine && token) {
-            pendingSyncs.current[clienteLocalId] = { cart, notes }; // Guardar estado pendiente
+            pendingSyncs.current[clienteLocalId] = { cart, notes };
             if (syncTimers.current[clienteLocalId]) clearTimeout(syncTimers.current[clienteLocalId]);
+            
+            // Si es el primer item, guardar inmediatamente (sin esperar el debounce)
+            const delay = isFirstItem ? 0 : 1000;
             syncTimers.current[clienteLocalId] = setTimeout(async () => {
                 const data = pendingSyncs.current[clienteLocalId];
                 if (!data) return;
                 try {
                     await saveBorradorToServer(clienteLocalId, data.cart, data.notes, token);
-                    delete pendingSyncs.current[clienteLocalId]; // Limpiar pendiente al terminar
+                    delete pendingSyncs.current[clienteLocalId];
+                    console.log(`[Borrador] Guardado en nube: ${clienteLocalId} (${data.cart?.length || 0} items)`);
                 } catch (err) {
-                    console.warn('Borrador cloud sync failed, will retry on next sync:', err.message);
+                    console.warn('[Borrador] Cloud sync failed, se reintentara en el proximo sync:', err.message);
                 }
-            }, 1000);
+            }, delay);
         }
     };
 

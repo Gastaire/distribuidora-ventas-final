@@ -24,6 +24,18 @@ db.version(9).stores({
     });
 });
 
+// Version 10: Indexar last_modified en borradores para reconciliación eficiente
+db.version(10).stores({
+    clientes: '++local_id, id, nombre_comercio, status, retries, vendedor_id', 
+    productos: 'id, nombre, archivado',
+    pedidos: '++local_id, id, fecha, status, retries, cliente_id, cliente_local_id, estado',
+    meta: 'key',
+    borradores: 'cliente_local_id, last_modified',
+    listas_de_precios: '&id, nombre, activa, fecha_creacion',
+    lista_precios_items: '++id, [lista_id+producto_id]'
+});
+
+
 // Abrimos la conexión a la base de datos.
 // Dexie maneja esto de forma muy eficiente.
 db.open().catch(err => {
