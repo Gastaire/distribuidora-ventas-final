@@ -156,13 +156,14 @@ export const PedidoProvider = ({ children }) => {
         return true;
     };
 
-    const savePedido = async (cliente, cart, notas) => {
+    const savePedido = async (cliente, cart, notas, opciones = {}) => {
         if (!cliente || cart.length === 0) throw new Error("Cliente o carrito inválido.");
+        const { fecha_entrega_programada = null } = opciones;
 
         const itemsParaGuardar = cart.map(item => ({ 
             producto_id: item.producto.id, 
             cantidad: item.cantidad,
-            precio_congelado: item.producto.precio_unitario, // Guardamos el precio al momento de la venta
+            precio_congelado: item.producto.precio_unitario,
             nombre_producto: item.producto.nombre,
             codigo_sku: item.producto.codigo_sku,
         }));
@@ -180,18 +181,25 @@ export const PedidoProvider = ({ children }) => {
             if (navigator.onLine && token && editingPedido.id) {
                 try {
                     await apiUpdatePedido(editingPedido.id, { items: itemsParaGuardar, notas_entrega: notas }, token);
-                    // --- INICIO DE LA MODIFICACIÓN (EDICIÓN) ---
-                    // Actualizamos el pedido local sin borrar los items y notas.
                     const updateData = { status: 'synced', estado: 'pendiente' };
                     const currentPedido = await db.pedidos.get(editingPedido.local_id);
                     await db.pedidos.put({ ...currentPedido, ...updateData });
-                    // --- FIN DE LA MODIFICACIÓN ---
                 } catch (apiError) {
                     console.error("API Error en update:", apiError.message);
                 }
             }
             discardCart(cliente.local_id);
             return { success: true, message: "Pedido actualizado localmente." };
+        }
+
+        // Calcular fecha_activacion local (para mostrar en PedidosPage sin esperar sync)
+        let fecha_activacion = null;
+        const estadoLocal = fecha_entrega_programada ? 'programado' : 'pendiente';
+        if (fecha_entrega_programada) {
+            const entrega = new Date(fecha_entrega_programada + 'T00:00:00-03:00');
+            entrega.setDate(entrega.getDate() - 1);
+            entrega.setHours(19, 30, 0, 0); // 16:30 ARG = 19:30 UTC
+            fecha_activacion = entrega.toISOString();
         }
 
         const nuevoPedidoLocal = {
@@ -205,7 +213,9 @@ export const PedidoProvider = ({ children }) => {
             items: itemsParaGuardar,
             notas_entrega: notas,
             status: 'pending_sync',
-            estado: 'pendiente', // Por defecto
+            estado: estadoLocal,
+            fecha_entrega_programada,
+            fecha_activacion,
             retries: 0
         };
 
@@ -213,20 +223,20 @@ export const PedidoProvider = ({ children }) => {
 
         if (navigator.onLine && token) {
             try {
-                const newPedidoFromServer = await apiCreatePedido({ cliente_id: cliente.id, items: itemsParaGuardar, notas_entrega: notas }, token);
-                // --- INICIO DE LA MODIFICACIÓN (CREACIÓN) ---
-                // Actualizamos el pedido local sin borrar los items y notas.
-                const updateData = { id: newPedidoFromServer.pedido_id, status: 'synced', estado: 'pendiente' };
+                const newPedidoFromServer = await apiCreatePedido(
+                    { cliente_id: cliente.id, items: itemsParaGuardar, notas_entrega: notas, fecha_entrega_programada },
+                    token
+                );
+                const updateData = { id: newPedidoFromServer.pedido_id, status: 'synced', estado: estadoLocal };
                 const currentPedido = await db.pedidos.get(nuevoPedidoLocal.local_id);
                 await db.pedidos.put({ ...currentPedido, ...updateData });
-                // --- FIN DE LA MODIFICACIÓN ---
             } catch (apiError) {
                 console.error("API Error en create:", apiError.message);
             }
         }
         
         discardCart(cliente.local_id);
-        return { success: true, message: "Pedido guardado localmente." };
+        return { success: true, message: fecha_entrega_programada ? "Pedido programado guardado." : "Pedido guardado localmente." };
     };
 
     const value = { openPedidos, editingPedido, draftNotes, updateCart, updateNotes, discardCart, savePedido, loadPedidoForEdit };

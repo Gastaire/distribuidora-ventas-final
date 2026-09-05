@@ -3,8 +3,88 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { usePedidos } from '../context/PedidoContext';
 import { db } from '../services/db';
 import { ArrowLeftIcon, Spinner, PlusIcon } from '../components/ui';
-import { generatePedidoPDF } from '../services/pdfService'; // <-- IMPORTAMOS EL SERVICIO DE PDF
+import { generatePedidoPDF } from '../services/pdfService';
 
+// ==========================================
+// Modal de Programación de Pedido
+// ==========================================
+const ScheduleModal = ({ onConfirmNow, onConfirmScheduled, onClose }) => {
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedDate, setSelectedDate] = useState('');
+
+    // Fecha mínima: mañana
+    const minDate = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    })();
+
+    // Calcular la fecha de activación para mostrarla al vendedor
+    const getActivationLabel = (dateStr) => {
+        if (!dateStr) return '';
+        const entrega = new Date(dateStr + 'T00:00:00-03:00');
+        entrega.setDate(entrega.getDate() - 1);
+        return entrega.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50" onClick={onClose}>
+            <div className="bg-white rounded-t-3xl w-full max-w-md p-6 pb-10" onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6"/>
+                <h3 className="text-xl font-bold text-gray-800 text-center mb-6">¿Cuándo enviamos este pedido?</h3>
+
+                {/* Opción: Enviar ahora */}
+                <button
+                    onClick={onConfirmNow}
+                    className="w-full bg-green-500 text-white font-bold py-4 rounded-xl mb-3 flex items-center justify-center gap-3 active:bg-green-600 text-lg"
+                >
+                    <span>✅</span> Enviar Ahora
+                </button>
+
+                {/* Opción: Programar */}
+                {!showDatePicker ? (
+                    <button
+                        onClick={() => setShowDatePicker(true)}
+                        className="w-full bg-violet-100 text-violet-700 font-bold py-4 rounded-xl flex items-center justify-center gap-3 active:bg-violet-200 text-lg"
+                    >
+                        <span>📅</span> Programar para otra fecha
+                    </button>
+                ) : (
+                    <div className="bg-violet-50 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-violet-700 mb-3">Elegí la fecha de entrega:</p>
+                        <input
+                            type="date"
+                            min={minDate}
+                            value={selectedDate}
+                            onChange={e => setSelectedDate(e.target.value)}
+                            className="w-full border-2 border-violet-300 rounded-lg p-3 text-lg font-semibold text-center focus:outline-none focus:border-violet-500 bg-white"
+                        />
+                        {selectedDate && (
+                            <p className="text-xs text-violet-600 mt-2 text-center">
+                                📬 El depósito lo verá el <strong>{getActivationLabel(selectedDate)}</strong> a las 16:30
+                            </p>
+                        )}
+                        <button
+                            onClick={() => selectedDate && onConfirmScheduled(selectedDate)}
+                            disabled={!selectedDate}
+                            className="w-full bg-violet-600 text-white font-bold py-3 rounded-lg mt-3 disabled:bg-gray-300 disabled:cursor-not-allowed active:bg-violet-700"
+                        >
+                            Confirmar Programación
+                        </button>
+                    </div>
+                )}
+
+                <button onClick={onClose} className="w-full text-gray-400 text-sm mt-4 py-2">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// Página Principal de Resumen
+// ==========================================
 const PedidoSummaryPage = () => {
     const navigate = useNavigate();
     const { clienteLocalId } = useParams();
@@ -14,6 +94,7 @@ const PedidoSummaryPage = () => {
     const notas = draftNotes[clienteLocalId] || '';
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
 
     const cart = openPedidos[clienteLocalId] || [];
 
@@ -32,27 +113,30 @@ const PedidoSummaryPage = () => {
         updateCart(clienteLocalId, newCart);
     };
 
-    const handleSave = async () => {
+    const executesSave = async (opciones = {}) => {
         setLoading(true);
+        setShowScheduleModal(false);
         setError('');
         try {
-            const result = await savePedido(cliente, cart, notas);
-            
-            // --- INICIO DE LA MODIFICACIÓN: Preguntar para generar PDF ---
-            const confirmed = window.confirm(`${result.message}\n\n¿Quieres guardar una copia del pedido en PDF?`);
-            if (confirmed) {
-                // Reconstruimos el objeto pedido con los datos que tenemos a mano para el PDF
-                const pedidoParaPDF = {
-                    ...(editingPedido || {}),
-                    local_id: editingPedido ? editingPedido.local_id : `local_${Date.now()}`,
-                    cliente_nombre_snapshot: cliente.nombre_comercio,
-                    fecha: new Date().toISOString(),
-                    items: cart.map(item => ({...item, ...item.producto})), // Combinamos para tener todos los datos
-                    notas_entrega: notas
-                };
-                await generatePedidoPDF(pedidoParaPDF, { action: 'download' });
+            const result = await savePedido(cliente, cart, notas, opciones);
+
+            // Preguntar si quiere PDF (solo para pedidos inmediatos)
+            if (!opciones.fecha_entrega_programada) {
+                const confirmed = window.confirm(`${result.message}\n\n¿Querés guardar una copia del pedido en PDF?`);
+                if (confirmed) {
+                    const pedidoParaPDF = {
+                        ...(editingPedido || {}),
+                        local_id: editingPedido ? editingPedido.local_id : `local_${Date.now()}`,
+                        cliente_nombre_snapshot: cliente.nombre_comercio,
+                        fecha: new Date().toISOString(),
+                        items: cart.map(item => ({...item, ...item.producto})),
+                        notas_entrega: notas
+                    };
+                    await generatePedidoPDF(pedidoParaPDF, { action: 'download' });
+                }
+            } else {
+                alert(`✅ ${result.message}`);
             }
-            // --- FIN DE LA MODIFICACIÓN ---
 
             navigate('/', { replace: true });
         } catch (err) {
@@ -61,9 +145,17 @@ const PedidoSummaryPage = () => {
             setLoading(false);
         }
     };
+
+    const handleConfirmClick = () => {
+        if (editingPedido) {
+            // Al editar no ofrecemos programar, se guarda directo
+            executesSave();
+        } else {
+            setShowScheduleModal(true);
+        }
+    };
     
     const goBackPath = editingPedido ? `/pedidos/editar/${editingPedido.local_id}` : `/pedidos/nuevo/${clienteLocalId}`;
-
     const totalPedido = cart.reduce((acc, item) => acc + (item.producto.precio_unitario * item.cantidad), 0);
 
     return (
@@ -112,10 +204,23 @@ const PedidoSummaryPage = () => {
                     <span>${totalPedido.toFixed(2)}</span>
                 </div>
                 {error && <p className="text-red-500 text-sm mb-2 text-center">{error}</p>}
-                <button onClick={handleSave} disabled={loading || cart.length === 0} className="w-full bg-green-500 text-white font-bold py-3 rounded-lg disabled:bg-gray-400 flex items-center justify-center">
+                <button 
+                    onClick={handleConfirmClick} 
+                    disabled={loading || cart.length === 0} 
+                    className="w-full bg-green-500 text-white font-bold py-3 rounded-lg disabled:bg-gray-400 flex items-center justify-center"
+                >
                     {loading ? <Spinner /> : (editingPedido ? 'Confirmar Cambios' : 'Confirmar Pedido')}
                 </button>
             </footer>
+
+            {/* Modal de programación */}
+            {showScheduleModal && (
+                <ScheduleModal
+                    onConfirmNow={() => executesSave()}
+                    onConfirmScheduled={(date) => executesSave({ fecha_entrega_programada: date })}
+                    onClose={() => setShowScheduleModal(false)}
+                />
+            )}
         </div>
     );
 };

@@ -13,7 +13,8 @@ import PedidoSummaryPage from './pages/PedidoSummaryPage';
 import PedidosPage from './pages/PedidosPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import PedidoEditPage from './pages/PedidoEditPage';
-import PedidoDetailPage from './pages/PedidoDetailPage'; // <-- NUEVO
+import PedidoDetailPage from './pages/PedidoDetailPage';
+import CatalogoPage from './pages/CatalogoPage';
 
 function App() {
   const { user } = useAuth();
@@ -33,8 +34,8 @@ function App() {
           <Route path="/pedidos" element={<PedidosPage />} />
           <Route path="/configuracion" element={<ConfiguracionPage />} />
 
-          {/* --- NUEVA RUTA DE DETALLE --- */}
           <Route path="/pedidos/detalle/:pedidoId" element={<PedidoDetailPage />} />
+          <Route path="/catalogo" element={<CatalogoPage />} />
 
         </Route>
       </Route>

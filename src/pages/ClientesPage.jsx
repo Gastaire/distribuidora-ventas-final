@@ -20,6 +20,30 @@ const StatusBadge = ({ status }) => {
     );
 };
 
+const ZONA_COLORS = {
+    'Tucumán Capital': { bg: 'rgba(99,102,241,0.15)', text: '#4338ca' },
+    'Lules':            { bg: 'rgba(59,130,246,0.15)', text: '#1d4ed8' },
+    'La Reducción':    { bg: 'rgba(34,197,94,0.15)',  text: '#15803d' },
+    'Famaillá':        { bg: 'rgba(234,179,8,0.15)',  text: '#a16207' },
+    'Leales':           { bg: 'rgba(168,85,247,0.15)', text: '#7e22ce' },
+    'Bella Vista':      { bg: 'rgba(236,72,153,0.15)', text: '#be185d' },
+    'San Pablo':        { bg: 'rgba(249,115,22,0.15)', text: '#c2410c' },
+    'Otra':             { bg: 'rgba(156,163,175,0.15)', text: '#4b5563' },
+};
+
+const ZonaChip = ({ zona }) => {
+    if (!zona) return null;
+    const colors = ZONA_COLORS[zona] || ZONA_COLORS['Otra'];
+    return (
+        <span
+            style={{ backgroundColor: colors.bg, color: colors.text }}
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+        >
+            📍 {zona}
+        </span>
+    );
+};
+
 const ClientesPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -27,6 +51,7 @@ const ClientesPage = () => {
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [zonaFilter, setZonaFilter] = useState(''); // filtro por zona
     
     // Modal state
     const [selectedClientForOrder, setSelectedClientForOrder] = useState(null);
@@ -46,9 +71,14 @@ const ClientesPage = () => {
         fetchClientes();
     }, [selectedClientForOrder]); // Reload if we close modal to show new icons
 
-    const filteredClientes = clientes.filter(c =>
-        c.nombre_comercio.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredClientes = clientes.filter(c => {
+        const matchesSearch = c.nombre_comercio.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesZona = !zonaFilter || c.zona === zonaFilter;
+        return matchesSearch && matchesZona;
+    });
+
+    // Lista de zonas presentes en los clientes para el dropdown
+    const zonasPresentes = [...new Set(clientes.map(c => c.zona).filter(Boolean))].sort();
 
     const handleClientClick = (cliente) => {
         if (cliente.vendedor_id && user && cliente.vendedor_id != user.id) {
@@ -86,6 +116,17 @@ const ClientesPage = () => {
                         className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
+                {/* Filtro por zona */}
+                {zonasPresentes.length > 0 && (
+                    <select
+                        value={zonaFilter}
+                        onChange={e => setZonaFilter(e.target.value)}
+                        className="py-2 px-2 rounded-lg bg-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[130px]"
+                    >
+                        <option value="">Todas</option>
+                        {zonasPresentes.map(z => <option key={z} value={z}>{z}</option>)}
+                    </select>
+                )}
                 <button onClick={() => navigate('/clientes/nuevo')} className="p-2 bg-blue-600 text-white rounded-full flex-shrink-0" aria-label="Añadir nuevo cliente">
                     <PlusIcon className="h-6 w-6" />
                 </button>
@@ -107,11 +148,12 @@ const ClientesPage = () => {
                                             <p className="text-xs text-gray-400 pl-7 mt-0.5">Vendedor: {cliente.vendedor_nombre}</p>
                                         )}
                                         <p className="text-sm text-gray-600 pl-7 mt-0.5">{cliente.direccion || 'Sin dirección'}</p>
-                                        <div className="pl-7 mt-1.5 flex items-center gap-2">
+                                        <div className="pl-7 mt-1.5 flex items-center gap-2 flex-wrap">
                                             <StatusBadge status={cliente.status} />
                                             {(cliente.latitud && cliente.longitud) && (
                                                 <span className="inline-block bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full">📍 GPS</span>
                                             )}
+                                            <ZonaChip zona={cliente.zona} />
                                         </div>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); navigate(`/clientes/editar/${cliente.local_id}`); }} className="p-2 text-gray-500 hover:text-blue-600" title="Editar cliente">

@@ -6,6 +6,12 @@ import { db } from '../services/db';
 import { UsersIcon, ShoppingCartIcon, SettingsIcon, CloudOffIcon } from '../components/ui';
 import { getCronogramaZonas } from '../services/api';
 
+const BookIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+);
+
 // Componente reutilizable para los botones de acción
 const ActionButton = ({ icon, text, onClick, badge, badgeColor }) => (
     <button onClick={onClick} className="bg-white p-4 rounded-xl shadow-md flex flex-col items-center justify-center text-center hover:bg-gray-50 active:scale-95 transition-transform relative">
@@ -212,6 +218,7 @@ const HomePage = () => {
             <main className="p-4 grid grid-cols-2 gap-4">
                 <ActionButton icon={<UsersIcon/>} text="Clientes" onClick={() => navigate('/clientes')} />
                 <ActionButton icon={<ShoppingCartIcon/>} text="Pedidos" onClick={() => navigate('/pedidos')} badge={pendingCount} badgeColor={badgeColor} />
+                <ActionButton icon={<BookIcon/>} text="Catálogo" onClick={() => navigate('/catalogo')} />
             </main>
         </div>
     );
