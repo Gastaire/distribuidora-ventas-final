@@ -56,6 +56,9 @@ async function syncPedidos(token) {
                 cliente_id: pedido.cliente_id,
                 items: pedido.items,
                 notas_entrega: pedido.notas_entrega,
+                // Pasar fecha de entrega si es un pedido programado para que el servidor
+                // lo cree con estado='programado' y no lo muestre al admin hasta el turno correcto
+                ...(pedido.fecha_entrega_programada && { fecha_entrega_programada: pedido.fecha_entrega_programada }),
             };
             if (pedido.id) {
                 await updatePedido(pedido.id, pedidoParaApi, token);
@@ -63,7 +66,9 @@ async function syncPedidos(token) {
                 updated++;
             } else { 
                 const newPedidoFromServer = await createPedido(pedidoParaApi, token);
-                await db.pedidos.update(pedido.local_id, { id: newPedidoFromServer.pedido_id, status: 'synced', retries: 0 });
+                // Actualizar estado local al mismo que tiene el servidor
+                const estadoServer = pedido.fecha_entrega_programada ? 'programado' : 'pendiente';
+                await db.pedidos.update(pedido.local_id, { id: newPedidoFromServer.pedido_id, status: 'synced', estado: estadoServer, retries: 0 });
                 created++;
             }
         } catch (error) {
